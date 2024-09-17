@@ -48,7 +48,7 @@ def __init__(self):
 def main():
     # Initialize Pygame
     pygame.init()
-    r_tree = pygame.image.load().convert()
+    r_tree = pygame.image.load("tree.jpg").convert()
     l_tree = pygame.transform.flip(r_tree, True, False)
     car = pygame.image.load().convert()
     car.set_colorkey(car.get_at(0,0))

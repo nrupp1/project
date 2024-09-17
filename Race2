@@ -1,0 +1,139 @@
+import os
+import pygame
+from PIL import Image
+from math import tan, radians
+
+# Define colors
+BLACK = pygame.Color('black')
+
+# Set the screen dimensions
+h = 640
+w = 480
+
+def load_image(path, scale=None):
+    """Load an image from a file and scale it if needed."""
+    try:
+        image = pygame.image.load(path).convert_alpha()
+        if scale:
+            image = pygame.transform.scale(image, scale)
+        print(f"Image loaded successfully: {path}")  # Debugging line
+        return image
+    except Exception as e:
+        print(f"Error loading image: {e}")
+        return None
+
+def draw_obstacles(screen, obstacles):
+    """Draw all obstacles on the screen."""
+    for obs in obstacles:
+        screen.blit(obs['image'], (obs['x'], obs['y']))
+
+def check_collision(car_rect, obstacles):
+    """Check for collisions between the car and obstacles."""
+    for obs in obstacles:
+        if car_rect.colliderect(obs['rect']):
+            return True
+    return False
+
+def main():
+    # Initialize Pygame
+    pygame.init()
+
+    # Set up the display
+    screen = pygame.display.set_mode((w, h))
+    pygame.display.set_caption("Car Game")
+
+    # Load images
+    tree_img = load_image("tree.jpg", (50, 50))  # Resize tree image
+    car_img = load_image("player_car.png", (78, 60))  # Resize car image
+    background_img = load_image("nolines.png", (w, h))  # Resize background image
+    oil_spill_img = load_image("oilspill.png", (30, 30))  # Resize oil spill image
+
+    # Check if images are loaded correctly
+    if not background_img:
+        print("Background image failed to load.")
+        pygame.quit()
+        return
+    if not tree_img:
+        print("Tree image failed to load.")
+    if not car_img:
+        print("Car image failed to load.")
+    if not oil_spill_img:
+        print("Oil spill image failed to load.")
+
+    # Initialize game variables
+    car_x = 100
+    car_y = h - 100  # Adjust car's starting position
+    car_speed = 5
+    obstacles = [
+        {'image': tree_img, 'x': 40, 'y': 135, 'rect': pygame.Rect(40, 135, 50, 50)},
+        {'image': tree_img, 'x': w - 90, 'y': 135, 'rect': pygame.Rect(w - 90, 135, 50, 50)},
+        {'image': oil_spill_img, 'x': w // 2 - 15, 'y': 160, 'rect': pygame.Rect(w // 2 - 15, 160, 30, 30)}
+    ]
+    obstacle_speed = 5
+
+    # Initialize timer
+    start_time = pygame.time.get_ticks()
+
+    # Game loop
+    game_running = True
+
+    while game_running:
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                game_running = False
+
+        keys = pygame.key.get_pressed()
+        if keys[pygame.K_LEFT]:
+            car_x -= car_speed
+        if keys[pygame.K_RIGHT]:
+            car_x += car_speed
+
+        # Ensure car doesn't go off screen
+        if car_x < 0:
+            car_x = 0
+        if car_x > w - car_img.get_width():
+            car_x = w - car_img.get_width()
+
+        # Update obstacle positions
+        for obs in obstacles:
+            obs['y'] += obstacle_speed
+            obs['rect'].y = obs['y']  # Update rectangle position
+            if obs['y'] > h:
+                obs['y'] = -50  # Reset to top
+                obs['rect'].y = obs['y']  # Reset rectangle position
+
+        # Check for collisions with oil spills
+        car_rect = pygame.Rect(car_x, car_y, car_img.get_width(), car_img.get_height())
+        if check_collision(car_rect, [obs for obs in obstacles if obs['image'] == oil_spill_img]):
+            print("Collision detected! Game over.")
+            game_running = False
+
+        # Clear the screen
+        screen.fill(BLACK)
+        screen.blit(background_img, (0, 0))
+
+        # Draw car
+        screen.blit(car_img, (car_x, car_y))
+
+        # Draw obstacles
+        draw_obstacles(screen, obstacles)
+
+        # Calculate elapsed time
+        elapsed_time = (pygame.time.get_ticks() - start_time) // 1000  # In seconds
+
+        # Display the timer
+        font = pygame.font.Font(None, 36)
+        timer_surface = font.render(f"Time: {elapsed_time}s", True, pygame.Color('white'))
+        screen.blit(timer_surface, (10, 10))
+
+        # Update the display
+        pygame.display.flip()
+
+        # Cap the frame rate
+        pygame.time.Clock().tick(30)
+
+    # Quit Pygame
+    pygame.quit()
+
+if __name__ == "__main__":
+    main()

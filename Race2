@@ -1,8 +1,3 @@
-import os
-import pygame
-from PIL import Image
-from math import tan, radians
-
 # Define colors
 BLACK = pygame.Color('black')
 
@@ -43,20 +38,22 @@ def main():
     pygame.display.set_caption("Car Game")
 
     # Load images
-    tree_img = load_image("tree.jpg", (50, 50))  # Resize tree image
+    tree_img = load_image("tree.png", (50, 50))  # Resize tree image
     car_img = load_image("player_car.png", (78, 60))  # Resize car image
     background_img = load_image("nolines.png", (w, h))  # Resize background image
     oil_spill_img = load_image("oilspill.png", (30, 30))  # Resize oil spill image
 
     # Check if images are loaded correctly
+    if not car_img:
+        print("Car image failed to load. Exiting game.")
+        pygame.quit()
+        return
     if not background_img:
         print("Background image failed to load.")
         pygame.quit()
         return
     if not tree_img:
         print("Tree image failed to load.")
-    if not car_img:
-        print("Car image failed to load.")
     if not oil_spill_img:
         print("Oil spill image failed to load.")
 
@@ -64,10 +61,17 @@ def main():
     car_x = 100
     car_y = h - 100  # Adjust car's starting position
     car_speed = 5
+
+    # Set the exact start positions for the tree and oil spill
+    tree_x1, tree_y1 = 40, 135  # Left tree coordinates
+    tree_x2, tree_y2 = w - 90, 135  # Right tree coordinates
+    oil_spill_x, oil_spill_y = w // 2 - 15, 160  # Oil spill exact location
+
+    # Initialize obstacles with exact positions
     obstacles = [
-        {'image': tree_img, 'x': 40, 'y': 135, 'rect': pygame.Rect(40, 135, 50, 50)},
-        {'image': tree_img, 'x': w - 90, 'y': 135, 'rect': pygame.Rect(w - 90, 135, 50, 50)},
-        {'image': oil_spill_img, 'x': w // 2 - 15, 'y': 160, 'rect': pygame.Rect(w // 2 - 15, 160, 30, 30)}
+        {'image': tree_img, 'x': tree_x1, 'y': tree_y1, 'rect': pygame.Rect(tree_x1, tree_y1, 50, 50)},
+        {'image': tree_img, 'x': tree_x2, 'y': tree_y2, 'rect': pygame.Rect(tree_x2, tree_y2, 50, 50)},
+        {'image': oil_spill_img, 'x': oil_spill_x, 'y': oil_spill_y, 'rect': pygame.Rect(oil_spill_x, oil_spill_y, 30, 30)}
     ]
     obstacle_speed = 5
 

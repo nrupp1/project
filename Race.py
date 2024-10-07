@@ -23,26 +23,26 @@ Hw = w // 2
 def find_segment(z,segments):
     return segments[int(z/segmentLength) % segments_List_Length]
 class Segment:
-def __init__(self):
-    self.point_1_x = 0
-    self.point_1_y = 0
-    self.point_1_screen_x = 0
-    self.point_1_screen_y = 0
-    self.point_1_screen_scale_x = 0
-    self.point_2_x = 0
-    self.point_2_y = 0
-    self.point_2_z = 0
-    self.point_2_screen_x = 0
-    self.point_2_screen_y = 0
-    self.point_2_screen_scale = 0
-    self.road_half_width_1 = 0
-    self.road_half_width_2 = 0
-    self.edje_width_1 = 0
-    self.edje_width_2 = 0
-    self.line_half_width_1 = 0
-    self.line_half_width_2 = 0
-    self.color = 0
-    self.sprites=[]
+    def __init__(self):
+        self.point_1_x = 0
+        self.point_1_y = 0
+        self.point_1_screen_x = 0
+        self.point_1_screen_y = 0
+        self.point_1_screen_scale_x = 0
+        self.point_2_x = 0
+        self.point_2_y = 0
+        self.point_2_z = 0
+        self.point_2_screen_x = 0
+        self.point_2_screen_y = 0
+        self.point_2_screen_scale = 0
+        self.road_half_width_1 = 0
+        self.road_half_width_2 = 0
+        self.edge_width_1 = 0
+        self.edge_width_2 = 0
+        self.line_half_width_1 = 0
+        self.line_half_width_2 = 0
+        self.color = 0
+        self.sprites=[]
     def project(self):
         f = viewing_distance
 def main():

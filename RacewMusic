@@ -1,0 +1,243 @@
+import os
+import pygame
+from PIL import Image
+from pygame.examples.music_drop_fade import play_file
+from pygame.locals import *
+
+# Define colors
+BLACK = pygame.Color('black')
+WHITE = pygame.Color('white')
+LIGHT_GRAY = pygame.Color('lightgray')
+
+# Set the screen dimensions
+h = 640
+w = 480
+Hh = h // 2
+Hw = w // 2
+
+def load_image(path, is_car=False):
+    """Load and preprocess images."""
+    try:
+        image = pygame.image.load(path).convert_alpha() if is_car else pygame.image.load(path).convert()
+        return image
+    except Exception as e:
+        print(f"Error loading image {path}: {e}")
+        return None
+
+def main():
+    # Initialize Pygame
+    pygame.init()
+
+    # Set up the display
+    screen = pygame.display.set_mode((w, h))
+    pygame.display.set_caption("Image Display")
+
+    # Load images
+    r_tree = load_image("tree.jpg")
+    l_tree = pygame.transform.flip(r_tree, True, False) if r_tree else None
+
+    # Scale trees
+    tree_width = 40
+    if r_tree:
+        tree_height = int(r_tree.get_height() * (tree_width / r_tree.get_width()))
+        r_tree = pygame.transform.scale(r_tree, (tree_width, tree_height))
+        l_tree = pygame.transform.scale(l_tree, (tree_width, tree_height)) if l_tree else None
+
+    # Load car image
+    car = load_image("car.png", is_car=True)
+
+    # Ensure the car image is correctly sized for subsurface
+    if car:
+        car_width, car_height = car.get_size()
+        if car_height >= 41:
+            car = car.subsurface(0, 0, min(car_width, 80), min(car_height, 41))
+
+    # Strip ICC profile using PIL
+    image_path = "nolines.png"
+    try:
+        pil_image = Image.open(image_path)
+        pil_image.save(image_path)  # Save to strip ICC profile
+    except Exception as e:
+        print(f"Error loading image with PIL: {e}")
+        pygame.quit()
+        return
+
+    # Load the image using Pygame after PIL has stripped the ICC profile
+    image_surface = load_image(image_path)
+
+    # Scale background image to fit the window
+    if image_surface:
+        image_surface = pygame.transform.scale(image_surface, (w, h))
+
+    # Button dimensions
+    button_width = 150
+    button_height = 50
+    button_start_y = 100
+
+    # Game loop variables
+    game_running = True
+    game_started = False
+    music_screen = False
+    show_music_box = False
+    buttons_visible = False
+
+    # Delay for back button and main menu buttons
+    back_button_delay = 1000  # Delay for back button in milliseconds
+    button_delay = 2000  # Delay for main menu buttons to appear again
+    back_button_visible_time = 0  # Time when back button becomes visible
+    main_buttons_visible_time = 0  # Time when start, music, and cars buttons become visible again
+
+    # Define button rectangles
+    button1 = pygame.Rect(0, 0, button_width, button_height)
+    button2 = pygame.Rect(0, 0, button_width, button_height)
+
+    # Define the songs array
+    songs = ["Rainbow Road", "Magical Sound Shower", "Coconut Mall", "Song 4", "Song 5"]
+    current_song_index = 0
+
+    # Set initial positions for the car and trees
+    car_position = None
+    tree_positions = [(x, h - 100) for x in range(40, w, 100)]  # Example positions for trees
+
+    while game_running:
+        # Get the current time to check for button delays
+        current_time = pygame.time.get_ticks()
+
+        # Event processing
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                game_running = False
+            elif event.type == pygame.MOUSEBUTTONDOWN:
+                mouse_pos = event.pos
+
+                # Handle button1 and button2 click (only register single press)
+                if music_screen and buttons_visible:
+                    if button1.collidepoint(mouse_pos):
+                        current_song_index = (current_song_index - 1) % len(songs)
+                        # Show music box remains visible
+                        main_buttons_visible_time = current_time + button_delay  # Delay for main buttons to become visible again
+                    elif button2.collidepoint(mouse_pos):
+                        current_song_index = (current_song_index + 1) % len(songs)
+                        # Show music box remains visible
+                        main_buttons_visible_time = current_time + button_delay  # Delay for main buttons to become visible again
+                    match current_song_index:
+                        case(0):
+                            play_file("68. Rainbow Road.mp3")
+                        case (1):
+                            play_file("Magical Sound Shower.mp3")
+                        case (2):
+                            play_file("28. Coconut Mall.mp3")
+                        case (3):
+                            play_file("85. N64 Sherbet Land.mp3")
+                        case(4):
+                            play_file("1-109. Bowser's Castle_.mp3")
+                # Check for main menu button clicks
+                if not music_screen:
+                    start_button = pygame.Rect(Hw - button_width // 2, button_start_y, button_width, button_height)
+                    music_button = pygame.Rect(Hw - button_width // 2, button_start_y + 60, button_width, button_height)
+                    cars_button = pygame.Rect(Hw - button_width // 2, button_start_y + 120, button_width, button_height)
+
+                    if start_button.collidepoint(mouse_pos):
+                        game_started = True
+                        car_position = (Hw - car.get_width() // 2, h - 150)  # Center car at the bottom
+                    elif music_button.collidepoint(mouse_pos):
+                        music_screen = True
+                        show_music_box = True
+                        buttons_visible = True
+                        back_button_visible_time = current_time + back_button_delay  # Set delay for back button
+
+        # Clear the screen
+        screen.fill(BLACK)
+
+        # Draw the background
+        if image_surface:
+            screen.blit(image_surface, (0, 0))
+
+        if not game_started:
+            if not music_screen:
+                # Main menu buttons with a delay for visibility
+                if current_time >= main_buttons_visible_time:
+                    start_button = pygame.Rect(Hw - button_width // 2, button_start_y, button_width, button_height)
+                    music_button = pygame.Rect(Hw - button_width // 2, button_start_y + 60, button_width, button_height)
+                    cars_button = pygame.Rect(Hw - button_width // 2, button_start_y + 120, button_width, button_height)
+
+                    # Draw buttons
+                    pygame.draw.rect(screen, LIGHT_GRAY, start_button)
+                    pygame.draw.rect(screen, LIGHT_GRAY, music_button)
+                    pygame.draw.rect(screen, LIGHT_GRAY, cars_button)
+
+                    # Add text to buttons
+                    font = pygame.font.Font(None, 36)
+                    start_text = font.render("Start", True, BLACK)
+                    music_text = font.render("Music", True, BLACK)
+                    cars_text = font.render("Cars", True, BLACK)
+
+                    screen.blit(start_text, (start_button.x + 10, start_button.y + 10))
+                    screen.blit(music_text, (music_button.x + 10, music_button.y + 10))
+                    screen.blit(cars_text, (cars_button.x + 10, cars_button.y + 10))
+
+            else:
+                # Music selection screen
+                if buttons_visible:
+                    button1_x = Hw - 200
+                    button1_y = (h - 150) // 2 + 20
+                    button1.topleft = (button1_x, button1_y)
+
+                    button2_x = Hw + 50
+                    button2_y = button1_y
+                    button2.topleft = (button2_x, button2_y)
+
+                    # Draw the buttons if they are visible
+                    pygame.draw.rect(screen, LIGHT_GRAY, button1)
+                    pygame.draw.rect(screen, LIGHT_GRAY, button2)
+
+                    # Create a black box for the music box
+                    box_width = 300
+                    box_height = 150
+                    box_x = (w - box_width) // 2
+                    box_y = (h - box_height) // 2
+                    music_box = pygame.Rect(box_x, box_y, box_width, box_height)
+
+                    # Draw the box
+                    pygame.draw.rect(screen, BLACK, music_box)
+
+                    # Add text in the center of the box for the currently selected song
+                    box_font = pygame.font.Font(None, 36)
+                    song_text = box_font.render(songs[current_song_index], True, WHITE)
+                    text_rect = song_text.get_rect(center=music_box.center)
+                    screen.blit(song_text, text_rect)
+
+                # Define back button rectangle
+                back_button = pygame.Rect(Hw - button_width // 2, button_start_y + 60, button_width, button_height)
+
+                # Only draw the back button if the delay has passed
+                if current_time >= back_button_visible_time:
+                    pygame.draw.rect(screen, LIGHT_GRAY, back_button)
+                    back_text = font.render("Back", True, BLACK)
+                    screen.blit(back_text, (back_button.x + 10, back_button.y + 10))
+
+                    # Check for back button click to reset the menu and hide elements
+                    if event.type == pygame.MOUSEBUTTONDOWN and back_button.collidepoint(mouse_pos):
+                        buttons_visible = False  # Hide buttons
+                        show_music_box = False  # Hide music box
+                        music_screen = False  # Go back to the main menu
+                        main_buttons_visible_time = current_time + button_delay  # Delay for main buttons to become visible again
+
+        # Draw the car if the game has started
+        if game_started and car:
+            screen.blit(car, car_position)
+
+            # Draw trees at specified positions if they are loaded
+            if r_tree and l_tree:
+                for tree_pos in tree_positions:
+                    screen.blit(r_tree, tree_pos)
+                    screen.blit(l_tree, (w - tree_pos[0] - tree_width, tree_pos[1]))
+
+        # Refresh the display
+        pygame.display.flip()
+
+    # Quit Pygame
+    pygame.quit()
+
+if __name__ == "__main__":
+    main()

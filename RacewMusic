@@ -16,7 +16,6 @@ Hh = h // 2
 Hw = w // 2
 
 # Global variable for current car
-current_car = "car1.png"
 
 # Define songs
 songs = [
@@ -120,6 +119,8 @@ def main():
 
     # Set initial car index
     current_car_index = 0
+    if current_car_index == 0:
+        current_car = "car1.png"
 
     while game_running:
         # Get the current time to check for button delays
@@ -148,6 +149,26 @@ def main():
                             music_playing = False  # Reset screens and UI
 
                 # Handle button1 and button2 click (only register single press)
+                if car_screen and buttons_visible:
+                    if button1.collidepoint(mouse_pos):
+                        current_car_index = (current_car_index - 1)
+                        if button2.collidepoint(mouse_pos):
+                            current_car_index = (current_car_index + 1)
+                            match(current_car_index):
+                                case(-1):
+                                    current_car_index = 5
+                                case (0):
+                                    current_car = "car1.png"
+                                case (1):
+                                    current_car = "car1.png"
+                                case (2):
+                                    current_car = "car1.png"
+                                case (3):
+                                    current_car = "car1.png"
+                                case (4):
+                                    current_car = "car1.png"
+                                case (5):
+                                    current_car_index = 0
                 if music_screen and buttons_visible:
                     if button1.collidepoint(mouse_pos):
                         current_song_index = (current_song_index - 1) % len(songs)

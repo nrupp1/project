@@ -16,7 +16,7 @@ Hh = h // 2
 Hw = w // 2
 
 # Global variable for current car
-
+current_song_index = 0
 # Define songs
 songs = [
     "68. Rainbow Road.mp3",
@@ -26,8 +26,6 @@ songs = [
     "1-109. Bowser's Castle_.mp3"
 ]
 global buttons_visible, music_screen, car_screen, music_playing
-current_song_index = 0
-
 
 def load_image(path, is_car=False):
     """Load and preprocess images."""
@@ -48,7 +46,7 @@ def play_music(song_index):
 def main():
     global current_car, current_song_index, music_playing, mouse_pos, back_button
     pygame.init()
-
+    current_song_index = -1
     # Initialize mixer for sound
     pygame.mixer.init()
 
@@ -125,7 +123,6 @@ def main():
     while game_running:
         # Get the current time to check for button delays
         current_time = pygame.time.get_ticks()
-
         # Event processing
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
@@ -170,6 +167,8 @@ def main():
                                 case (5):
                                     current_car_index = 0
                 if music_screen and buttons_visible:
+                    if current_song_index < 0:
+                        current_song_index = 0
                     if button1.collidepoint(mouse_pos):
                         current_song_index = (current_song_index - 1) % len(songs)
                         play_music(current_song_index)  # Play new song when switching
@@ -292,10 +291,12 @@ def main():
                     (Hw - current_car_image.get_width() // 2, h - 150))  # Center car at the bottom
         # Update the display
         pygame.display.flip()
-
+        if current_song_index < 0:
+            pygame.mixer.music.stop()
 pygame.quit()
 
 
 if __name__ == "__main__":
     main()
+
 

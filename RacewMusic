@@ -25,6 +25,13 @@ songs = [
     "85. N64 Sherbet Land.mp3",
     "1-109. Bowser's Castle_.mp3"
 ]
+current_car = [
+    "car1.png",
+    "car2.png",
+    "car1.png",
+    "car1.png",
+    "car1.png"
+]
 global buttons_visible, music_screen, car_screen, music_playing
 
 def load_image(path, is_car=False):
@@ -47,6 +54,7 @@ def main():
     global current_car, current_song_index, music_playing, mouse_pos, back_button
     pygame.init()
     current_song_index = -1
+    current_car_index = -1
     # Initialize mixer for sound
     pygame.mixer.init()
 
@@ -115,11 +123,6 @@ def main():
     button1 = pygame.Rect(0, 0, button_width, button_height)
     button2 = pygame.Rect(0, 0, button_width, button_height)
 
-    # Set initial car index
-    current_car_index = 0
-    if current_car_index == 0:
-        current_car = "car1.png"
-
     while game_running:
         # Get the current time to check for button delays
         current_time = pygame.time.get_ticks()
@@ -147,25 +150,17 @@ def main():
 
                 # Handle button1 and button2 click (only register single press)
                 if car_screen and buttons_visible:
+                    if current_car_index < 0:
+                        current_car_index = 0
                     if button1.collidepoint(mouse_pos):
-                        current_car_index = (current_car_index - 1)
-                        if button2.collidepoint(mouse_pos):
-                            current_car_index = (current_car_index + 1)
-                            match(current_car_index):
-                                case(-1):
-                                    current_car_index = 5
-                                case (0):
-                                    current_car = "car1.png"
-                                case (1):
-                                    current_car = "car1.png"
-                                case (2):
-                                    current_car = "car1.png"
-                                case (3):
-                                    current_car = "car1.png"
-                                case (4):
-                                    current_car = "car1.png"
-                                case (5):
-                                    current_car_index = 0
+                        current_car_index = (current_car_index - 1) % len(current_car)
+                        load_image(current_car[current_car_index], True)
+                        main_buttons_visible_time = current_time + button_delay  # Delay for main buttons to become visible again
+                    elif button2.collidepoint(mouse_pos):
+                        current_car_index = (current_car_index + 1) % len(current_car)
+                        load_image(current_car[current_car_index], True)
+                        main_buttons_visible_time = current_time + button_delay  # Delay for main buttons to become visible again
+
                 if music_screen and buttons_visible:
                     if current_song_index < 0:
                         current_song_index = 0
@@ -284,9 +279,9 @@ def main():
                 screen.blit(next_car_text, (button2.x + 10, button2.y + 10))
 
                 # Draw current car
-                current_car_image = load_image(current_car, True)  # Load the selected car image
+                current_car_image = load_image(current_car[current_car_index], True)  # Load the selected car image
                 if current_car_image:
-                    current_car_image = pygame.transform.scale(current_car_image, (80, 41))  # Scale it
+                    current_car_image = pygame.transform.scale(current_car_image, (160 /1.5, 82 / 1.5))  # Scale it
                     screen.blit(current_car_image,
                     (Hw - current_car_image.get_width() // 2, h - 150))  # Center car at the bottom
         # Update the display
@@ -298,5 +293,3 @@ pygame.quit()
 
 if __name__ == "__main__":
     main()
-
-

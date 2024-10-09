@@ -4,95 +4,86 @@ from PIL import Image
 from math import tan, radians, degrees, pi
 from pygame.locals import *
 
-# Define colors
-BLACK = pygame.Color('black')
-WHITE = pygame.Color('white')
-RED = pygame.Color('red')
-GREEN = pygame.Color('green')
-BLUE = pygame.Color('blue')
-LIGHT_GREEN = pygame.Color('lightgreen')
-LIGHT_GRAY = pygame.Color('lightgray')
-DARK_GRAY = pygame.Color('darkgray')
-DARK_GREEN = pygame.Color('darkgreen')
+import os
+import pygame
+from pygame.locals import *
+from math import tan, radians
 
 # Set the screen dimensions
-h = 640
-w = 480
-Hh = h // 2
-Hw = w // 2
-def find_segment(z,segments):
-    return segments[int(z/segmentLength) % segments_List_Length]
-class Segment:
-    def __init__(self):
-        self.point_1_x = 0
-        self.point_1_y = 0
-        self.point_1_screen_x = 0
-        self.point_1_screen_y = 0
-        self.point_1_screen_scale_x = 0
-        self.point_2_x = 0
-        self.point_2_y = 0
-        self.point_2_z = 0
-        self.point_2_screen_x = 0
-        self.point_2_screen_y = 0
-        self.point_2_screen_scale = 0
-        self.road_half_width_1 = 0
-        self.road_half_width_2 = 0
-        self.edge_width_1 = 0
-        self.edge_width_2 = 0
-        self.line_half_width_1 = 0
-        self.line_half_width_2 = 0
-        self.color = 0
-        self.sprites=[]
-    def project(self):
-        f = viewing_distance
+SCREEN_HEIGHT = 640
+SCREEN_WIDTH = 480
+HALF_HEIGHT = SCREEN_HEIGHT // 2
+HALF_WIDTH = SCREEN_WIDTH // 2
+
+def load_images():
+    """Load images and handle loading errors."""
+    try:
+        background = pygame.image.load("nolines.png").convert()
+        stripes_image = pygame.image.load("stripes.png").convert()
+        road_image = pygame.image.load("road3.png").convert()
+        return background, stripes_image, road_image
+    except Exception as e:
+        print(f"Error loading images: {e}")
+        return None, None, None
+
 def main():
     # Initialize Pygame
     pygame.init()
-    r_tree = pygame.image.load("tree.jpg").convert()
-    l_tree = pygame.transform.flip(r_tree, True, False)
-    car = pygame.image.load().convert()
-    car.set_colorkey(car.get_at(0,0))
-    car = car.subsurface(0,0,33,74)
+
     # Set up the display
+    screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
+    pygame.display.set_caption("Road Raster Effect")
 
-    screen = pygame.display.set_mode((h, w))
-    pygame.display.set_caption("Image Display")
-    camera_x = 0
+    # Load images
+    background, stripes_image, road_image = load_images()
+    if background is None:
+        return  # Exit if images failed to load
+
+    # Resize the background to fit the screen
+    background = pygame.transform.scale(background, (SCREEN_WIDTH, SCREEN_HEIGHT))
+
+    # Set camera parameters
     camera_y = 15
-    camera_z = .1
-    fov = 60
-    viewing_distance = Hw/tan(radians(fov/2))
-    # Load and convert an image using PIL to strip ICC profile
-    try:
-        image_path = "nolines.png"
-        pil_image = Image.open(image_path)
-        pil_image.save(image_path)  # This removes the ICC profile
-    except Exception as e:
-        print(f"Error loading image: {e}")
-        return
-
-    # Now load the image using Pygame after PIL has stripped the ICC profile
-    try:
-        image_surface = pygame.image.load(image_path).convert()
-    except Exception as e:
-        print(f"Error loading image in Pygame: {e}")
-        return
-
-    # Scale image to fit the window
-    image_surface = pygame.transform.scale(image_surface, (h, w))
+    camera_z = 0.1
+    fov_angle = 60
+    scaling = (HALF_WIDTH) / tan(radians(fov_angle / 2))
 
     # Game loop
     game_running = True
-    event_count = 1  # Track event count to exit after collision
-
-    while game_running and event_count > 0:
+    while game_running:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 game_running = False
 
-        # Clear the screen and display the image
-        screen.fill((0, 0, 0))
-        screen.blit(image_surface, (0, 0))
+        # Clear the screen and display the background
+        screen.blit(background, (0, 0))
+
+        # Apply raster effect by progressively scaling road and stripes images
+        for y in range(HALF_HEIGHT, SCREEN_HEIGHT):
+            z_world = (y - HALF_HEIGHT) + camera_y  # Distance to the screen based on y position
+            if z_world <= 0:
+                continue  # Skip if z_world is zero or negative to avoid division by zero
+
+            perspective_scale = scaling / z_world
+
+            # Set widths based on perspective
+            road_width = int(SCREEN_WIDTH * 0.4 * perspective_scale)  # Road should be about 40% of screen width
+            stripe_width = int(SCREEN_WIDTH * 0.2 * perspective_scale)  # Stripes should take up about 20% on either side
+            road_height = int(SCREEN_HEIGHT / 10)  # Keep height fixed for horizontal strips
+
+            # Scale the road and stripes for perspective effect
+            scaled_road_image = pygame.transform.scale(road_image, (road_width, road_height))
+            scaled_stripes_image = pygame.transform.scale(stripes_image, (stripe_width, road_height))
+
+            # Calculate positions to center road and put stripes on either side
+            road_x_position = (HALF_WIDTH - (road_width // 2))
+            left_stripe_x_position = road_x_position - stripe_width
+            right_stripe_x_position = road_x_position + road_width
+
+            # Blit the road and stripes onto the screen
+            screen.blit(scaled_road_image, (road_x_position, y))
+            screen.blit(scaled_stripes_image, (left_stripe_x_position, y))
+            screen.blit(scaled_stripes_image, (right_stripe_x_position, y))
 
         # Update the display
         pygame.display.flip()

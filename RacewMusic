@@ -26,7 +26,7 @@ songs = [
     "85. N64 Sherbet Land.mp3",
     "1-109. Bowser's Castle_.mp3"
 ]
-
+global buttons_visible, music_screen, car_screen, music_playing
 current_song_index = 0
 
 
@@ -40,17 +40,6 @@ def load_image(path, is_car=False):
         return None
 
 
-def back_to_main_menu():
-    """Reset screens to return to the main menu."""
-    global music_screen, car_screen, buttons_visible, music_playing
-    music_screen = False
-    car_screen = False
-    buttons_visible = False
-    if music_playing:
-        pygame.mixer.music.stop()  # Stop music when returning to the main menu
-        music_playing = False
-
-
 def play_music(song_index):
     """Play the specified song based on the index."""
     pygame.mixer.music.load(songs[song_index])
@@ -58,7 +47,7 @@ def play_music(song_index):
 
 
 def main():
-    global current_car, current_song_index, music_playing
+    global current_car, current_song_index, music_playing, mouse_pos, back_button
     pygame.init()
 
     # Initialize mixer for sound
@@ -145,8 +134,18 @@ def main():
 
                 # Handle back button click
                 if buttons_visible and event.button == 1:
-                    if music_screen or car_screen:
-                        back_to_main_menu()  # Reset screens to main menu
+                    if music_screen and back_button.collidepoint(mouse_pos):
+                        buttons_visible = False
+                        music_screen = False
+                        if music_playing:
+                            pygame.mixer.music.stop()  # Stop music when returning to the main menu
+                            music_playing = False  # Reset screens and UI
+                    elif car_screen and back_button.collidepoint(mouse_pos):
+                        buttons_visible = False
+                        car_screen = False
+                        if music_playing:
+                            pygame.mixer.music.stop()  # Stop music when returning to the main menu
+                            music_playing = False  # Reset screens and UI
 
                 # Handle button1 and button2 click (only register single press)
                 if music_screen and buttons_visible:
@@ -158,7 +157,6 @@ def main():
                         current_song_index = (current_song_index + 1) % len(songs)
                         play_music(current_song_index)  # Play new song when switching
                         main_buttons_visible_time = current_time + button_delay  # Delay for main buttons to become visible again
-
                 # Check for main menu button clicks
                 if not music_screen and not car_screen:
                     start_button = pygame.Rect(Hw - button_width // 2, button_start_y, button_width, button_height)
@@ -221,6 +219,13 @@ def main():
                     screen.blit(back_text, (back_button.x + 10, back_button.y + 10))
 
             elif music_screen:
+                # Music screen
+                if current_time >= back_button_visible_time:
+                    back_button = pygame.Rect(5, 10, button_width, button_height)
+                    pygame.draw.rect(screen, LIGHT_GRAY, back_button)
+
+                    back_text = font.render("Back", True, BLACK)
+                    screen.blit(back_text, (back_button.x + 10, back_button.y + 10))
                 if show_music_box:
                     # Show music selection UI
                     pygame.draw.rect(screen, BLACK, (Hw - 200, Hh - 100, 400, 45))  # Black box for song names
@@ -240,7 +245,13 @@ def main():
                     screen.blit(next_song_text, (button2.x + 10, button2.y + 10))
 
             elif car_screen:
+                # Car screen
                 screen.fill(BLACK)  # Set screen to black for car selection
+                if current_time >= back_button_visible_time:
+                    back_button = pygame.Rect(5, 10, button_width, button_height)
+                    pygame.draw.rect(screen, LIGHT_GRAY, back_button)
+                    back_text = font.render("Back", True, BLACK)
+                    screen.blit(back_text, (back_button.x + 10, back_button.y + 10))
                 button1 = pygame.Rect(Hw - button_width // 2, button_start_y, button_width, button_height)
                 button2 = pygame.Rect(Hw - button_width // 2, button_start_y + 60, button_width, button_height)
                 pygame.draw.rect(screen, LIGHT_GRAY, button1)
@@ -257,13 +268,13 @@ def main():
                 if current_car_image:
                     current_car_image = pygame.transform.scale(current_car_image, (80, 41))  # Scale it
                     screen.blit(current_car_image,
-                                (Hw - current_car_image.get_width() // 2, h - 150))  # Center car at the bottom
-
+                    (Hw - current_car_image.get_width() // 2, h - 150))  # Center car at the bottom
         # Update the display
         pygame.display.flip()
 
-    pygame.quit()
+pygame.quit()
 
 
 if __name__ == "__main__":
     main()
+

@@ -1,30 +1,28 @@
-import os
 import pygame
-from PIL import Image
-from math import tan, radians, degrees, pi
+import math
 from pygame.locals import *
-
-import os
-import pygame
-from pygame.locals import *
-from math import tan, radians
 
 # Set the screen dimensions
-SCREEN_HEIGHT = 640
-SCREEN_WIDTH = 480
-HALF_HEIGHT = SCREEN_HEIGHT // 2
-HALF_WIDTH = SCREEN_WIDTH // 2
+SCREEN_HEIGHT = 480
+SCREEN_WIDTH = 640
+HORIZON_Y = 220  # Horizon starting point
+MIN_ROAD_WIDTH = 28  # Narrow road width at the horizon
+MAX_ROAD_WIDTH = 640  # Wide road width at the base
+STRIPE_HEIGHT = 10  # Height of each stripe section
+STRIPE_SPEED = 3  # Speed for stripe movement
+
 
 def load_images():
     """Load images and handle loading errors."""
     try:
-        background = pygame.image.load("nolines.png").convert()
-        stripes_image = pygame.image.load("stripes.png").convert()
+        # Removed the background image as it's no longer needed
         road_image = pygame.image.load("road3.png").convert()
-        return background, stripes_image, road_image
+        road_image2 = pygame.image.load("road2.png").convert()
+        return road_image, road_image2
     except Exception as e:
         print(f"Error loading images: {e}")
-        return None, None, None
+        return None, None
+
 
 def main():
     # Initialize Pygame
@@ -32,64 +30,82 @@ def main():
 
     # Set up the display
     screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
-    pygame.display.set_caption("Road Raster Effect")
+    pygame.display.set_caption("Road Stretching Effect")
 
     # Load images
-    background, stripes_image, road_image = load_images()
-    if background is None:
+    road_image, road_image2 = load_images()
+    if road_image is None or road_image2 is None:
         return  # Exit if images failed to load
 
-    # Resize the background to fit the screen
-    background = pygame.transform.scale(background, (SCREEN_WIDTH, SCREEN_HEIGHT))
+    clock = pygame.time.Clock()
 
-    # Set camera parameters
-    camera_y = 15
-    camera_z = 0.1
-    fov_angle = 60
-    scaling = (HALF_WIDTH) / tan(radians(fov_angle / 2))
+    # Initialize stripe positions below the horizon
+    stripe_positions = list(range(HORIZON_Y, SCREEN_HEIGHT, STRIPE_HEIGHT * 2))
 
-    # Game loop
-    game_running = True
-    while game_running:
+    count = 0
+    while True:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
-                game_running = False
+                pygame.quit()
+                return
 
-        # Clear the screen and display the background
-        screen.blit(background, (0, 0))
+                # Fill the screen with the blue background color
+            screen.fill((100, 150, 250))
 
-        # Apply raster effect by progressively scaling road and stripes images
-        for y in range(HALF_HEIGHT, SCREEN_HEIGHT):
-            z_world = (y - HALF_HEIGHT) + camera_y  # Distance to the screen based on y position
-            if z_world <= 0:
-                continue  # Skip if z_world is zero or negative to avoid division by zero
+            # Fill the area below the horizon with the specified light green color
+            pygame.draw.rect(screen, (180, 230, 28), (0, HORIZON_Y, SCREEN_WIDTH, SCREEN_HEIGHT - HORIZON_Y))
 
-            perspective_scale = scaling / z_world
+        # Draw dark green stripes and empty rows
+        for i in range(len(stripe_positions)):
+            position = stripe_positions[i]
 
-            # Set widths based on perspective
-            road_width = int(SCREEN_WIDTH * 0.4 * perspective_scale)  # Road should be about 40% of screen width
-            stripe_width = int(SCREEN_WIDTH * 0.2 * perspective_scale)  # Stripes should take up about 20% on either side
-            road_height = int(SCREEN_HEIGHT / 10)  # Keep height fixed for horizontal strips
+            # Draw the green stripe
+            pygame.draw.rect(screen, (0, 198, 0), (0, position, SCREEN_WIDTH, STRIPE_HEIGHT))  # Green row
 
-            # Scale the road and stripes for perspective effect
-            scaled_road_image = pygame.transform.scale(road_image, (road_width, road_height))
-            scaled_stripes_image = pygame.transform.scale(stripes_image, (stripe_width, road_height))
+            # Draw empty row (light green)
+            empty_row_position = position + STRIPE_HEIGHT
+            if empty_row_position < SCREEN_HEIGHT:
+                pygame.draw.rect(screen, (180, 230, 28),
+                                 (0, empty_row_position, SCREEN_WIDTH, STRIPE_HEIGHT))  # Light green row
 
-            # Calculate positions to center road and put stripes on either side
-            road_x_position = (HALF_WIDTH - (road_width // 2))
-            left_stripe_x_position = road_x_position - stripe_width
-            right_stripe_x_position = road_x_position + road_width
+            # Update stripe position for movement
+            stripe_positions[i] += STRIPE_SPEED  # Move downwards
 
-            # Blit the road and stripes onto the screen
-            screen.blit(scaled_road_image, (road_x_position, y))
-            screen.blit(scaled_stripes_image, (left_stripe_x_position, y))
-            screen.blit(scaled_stripes_image, (right_stripe_x_position, y))
+            # Reset stripe position if it goes off-screen
+            if stripe_positions[i] > SCREEN_HEIGHT:
+                stripe_positions[i] = HORIZON_Y  # Reset back to below the horizon
+
+        # Draw the road with stretching effect
+        for i in range(HORIZON_Y, SCREEN_HEIGHT):
+            # Calculate the scaling factor for perspective effect
+            scale = (i - HORIZON_Y) / (SCREEN_HEIGHT - HORIZON_Y)  # Scale from 0 to 1
+
+            # Calculate road width based on scaling factor
+            road_width = int(MIN_ROAD_WIDTH + (scale * (MAX_ROAD_WIDTH - MIN_ROAD_WIDTH)))
+
+            # Calculate the position to center the road
+            road_x_position = (SCREEN_WIDTH - road_width) // 2
+
+            # Alternate between road images
+            if count % 3 == 0:
+                road_slice = road_image.subsurface((0, 0, road_image.get_width(), 1))
+            else:
+                road_slice = road_image2.subsurface((0, 0, road_image2.get_width(), 1))
+            count += 1
+
+            # Scale the road slice to the correct width
+            scaled_slice = pygame.transform.scale(road_slice, (road_width, 1))
+
+            # Draw the scaled road slice
+            screen.blit(scaled_slice, (road_x_position, i))
 
         # Update the display
         pygame.display.flip()
+        clock.tick(60)
 
     # Quit Pygame
     pygame.quit()
+
 
 if __name__ == "__main__":
     main()

@@ -1,111 +1,64 @@
 import pygame
 import math
-from pygame.locals import *
 
-# Set the screen dimensions
-SCREEN_HEIGHT = 480
-SCREEN_WIDTH = 640
-HORIZON_Y = 220  # Horizon starting point
-MIN_ROAD_WIDTH = 28  # Narrow road width at the horizon
-MAX_ROAD_WIDTH = 640  # Wide road width at the base
-STRIPE_HEIGHT = 10  # Height of each stripe section
-STRIPE_SPEED = 3  # Speed for stripe movement
+# Initialize pygame
+pygame.init()
 
+# Set up the display
+SCREEN_WIDTH, SCREEN_HEIGHT = 320, 240
+Screem_size = (SCREEN_WIDTH, SCREEN_HEIGHT)
+screen = pygame.display.set_mode(Screem_size, pygame.SCALED)
+pygame.display.set_caption("Don't Crash!!")
 
-def load_images():
-    """Load images and handle loading errors."""
-    try:
-        # Removed the background image as it's no longer needed
-        road_image = pygame.image.load("road3.png").convert()
-        road_image2 = pygame.image.load("road2.png").convert()
-        return road_image, road_image2
-    except Exception as e:
-        print(f"Error loading images: {e}")
-        return None, None
+# Load road textures
+road_texture = pygame.image.load("road3.png")
 
+# Clock for managing time and speed
+clock = pygame.time.Clock()
 
-def main():
-    # Initialize Pygame
-    pygame.init()
+car_x = 0  # Starting car x-position
+running = True
 
-    # Set up the display
-    screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
-    pygame.display.set_caption("Road Stretching Effect")
+while running:
+    delta = clock.tick() / 1000 + 0.00001  # Calculate delta time
+    car_x += delta * 200  # Speed up the car a bit for testing purposes
 
-    # Load images
-    road_image, road_image2 = load_images()
-    if road_image is None or road_image2 is None:
-        return  # Exit if images failed to load
+    # Handle quitting
+    for event in pygame.event.get():
+        if event.type == pygame.QUIT:
+            running = False
 
-    clock = pygame.time.Clock()
+    # Fill background with sky color
+    screen.fill((100, 150, 250))
 
-    # Initialize stripe positions below the horizon
-    stripe_positions = list(range(HORIZON_Y, SCREEN_HEIGHT, STRIPE_HEIGHT * 2))
+    # Draw the road in the main loop
+    for i in range(130):  # 120 rows of road slices
+        scale = (140 - i) / 320
+        x = car_x + i / scale  # Update road position based on car_x and current row
 
-    count = 0
-    while True:
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                pygame.quit()
-                return
+        # Correctly using math.sin instead of sin
+        y_pos = 200 * math.sin(x / 1170) + 170 * math.sin(x / 580)  # Calculate y position to simulate depth effect
+        horizontal = 200 - (200 - y_pos) * scale
 
-                # Fill the screen with the blue background color
-            screen.fill((100, 150, 250))
+        # Extract a road slice from the texture
+        road_slice = road_texture.subsurface(0, int(x % road_texture.get_height()), road_texture.get_width(), 1)
 
-            # Fill the area below the horizon with the specified light green color
-            pygame.draw.rect(screen, (180, 230, 28), (0, HORIZON_Y, SCREEN_WIDTH, SCREEN_HEIGHT - HORIZON_Y))
+        # Scale the road slice to create a sense of perspective (smaller at the top)
+        scale_factor = (140 - i) / 300
+        scaled_slice = pygame.transform.scale(road_slice, (int(road_texture.get_width() * scale_factor), 1))
 
-        # Draw dark green stripes and empty rows
-        for i in range(len(stripe_positions)):
-            position = stripe_positions[i]
+        # Color the road based on depth
+        color = (int(50 - i / 3), int(130 - i), int(50 + 30 * math.sin(x)))
+        pygame.draw.rect(screen, color, (0, 239 - i, 320, 1))
 
-            # Draw the green stripe
-            pygame.draw.rect(screen, (0, 198, 0), (0, position, SCREEN_WIDTH, STRIPE_HEIGHT))  # Green row
+        # Center the scaled road slice horizontally
+        slice_x = (SCREEN_WIDTH - scaled_slice.get_width()) // 2
 
-            # Draw empty row (light green)
-            empty_row_position = position + STRIPE_HEIGHT
-            if empty_row_position < SCREEN_HEIGHT:
-                pygame.draw.rect(screen, (180, 230, 28),
-                                 (0, empty_row_position, SCREEN_WIDTH, STRIPE_HEIGHT))  # Light green row
+        # Blit the scaled road slice onto the screen
+        screen.blit(scaled_slice, (horizontal, 239 - i))
 
-            # Update stripe position for movement
-            stripe_positions[i] += STRIPE_SPEED  # Move downwards
+    # Update the display with the road drawn
+    pygame.display.update()
 
-            # Reset stripe position if it goes off-screen
-            if stripe_positions[i] > SCREEN_HEIGHT:
-                stripe_positions[i] = HORIZON_Y  # Reset back to below the horizon
-
-        # Draw the road with stretching effect
-        for i in range(HORIZON_Y, SCREEN_HEIGHT):
-            # Calculate the scaling factor for perspective effect
-            scale = (i - HORIZON_Y) / (SCREEN_HEIGHT - HORIZON_Y)  # Scale from 0 to 1
-
-            # Calculate road width based on scaling factor
-            road_width = int(MIN_ROAD_WIDTH + (scale * (MAX_ROAD_WIDTH - MIN_ROAD_WIDTH)))
-
-            # Calculate the position to center the road
-            road_x_position = (SCREEN_WIDTH - road_width) // 2
-
-            # Alternate between road images
-            if count % 3 == 0:
-                road_slice = road_image.subsurface((0, 0, road_image.get_width(), 1))
-            else:
-                road_slice = road_image2.subsurface((0, 0, road_image2.get_width(), 1))
-            count += 1
-
-            # Scale the road slice to the correct width
-            scaled_slice = pygame.transform.scale(road_slice, (road_width, 1))
-
-            # Draw the scaled road slice
-            screen.blit(scaled_slice, (road_x_position, i))
-
-        # Update the display
-        pygame.display.flip()
-        clock.tick(60)
-
-    # Quit Pygame
-    pygame.quit()
-
-
-if __name__ == "__main__":
-    main()
+# Quit pygame
+pygame.quit()

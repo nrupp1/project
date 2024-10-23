@@ -30,10 +30,9 @@ while running:
 
     # Fill background with sky color
     screen.fill((100, 150, 250))
-
     # Draw the road in the main loop
     for i in range(130):  # 120 rows of road slices
-        scale = (140 - i) / 320
+        scale = (139 - i) / 320
         x = car_x + i / scale  # Update road position based on car_x and current row
 
         # Correctly using math.sin instead of sin

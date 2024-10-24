@@ -6,8 +6,8 @@ pygame.init()
 
 # Set up the display
 SCREEN_WIDTH, SCREEN_HEIGHT = 320, 240
-Screem_size = (SCREEN_WIDTH, SCREEN_HEIGHT)
-screen = pygame.display.set_mode(Screem_size, pygame.SCALED)
+screen_size = (SCREEN_WIDTH, SCREEN_HEIGHT)
+screen = pygame.display.set_mode(screen_size, pygame.SCALED)
 pygame.display.set_caption("Don't Crash!!")
 
 # Load road textures
@@ -21,7 +21,7 @@ running = True
 
 while running:
     delta = clock.tick() / 1000 + 0.00001  # Calculate delta time
-    car_x += delta * 200  # Speed up the car a bit for testing purposes
+    car_x += delta * 10  # Updated speed to match the provided ideas
 
     # Handle quitting
     for event in pygame.event.get():
@@ -30,31 +30,64 @@ while running:
 
     # Fill background with sky color
     screen.fill((100, 150, 250))
-    # Draw the road in the main loop
-    for i in range(130):  # 120 rows of road slices
-        scale = (139 - i) / 320
-        x = car_x + i / scale  # Update road position based on car_x and current row
 
-        # Correctly using math.sin instead of sin
-        y_pos = 200 * math.sin(x / 1170) + 170 * math.sin(x / 580)  # Calculate y position to simulate depth effect
-        horizontal = 200 - (200 - y_pos) * scale
+    # Initialize vertical position and draw distance
+    vertical, draw_distance = 180, 1
+    z_buffer = [999 for _ in range(SCREEN_HEIGHT)]  # Adjusted to match screen height
 
-        # Extract a road slice from the texture
-        road_slice = road_texture.subsurface(0, int(x % road_texture.get_height()), road_texture.get_width(), 1)
+    while draw_distance < 115:
+        last_vertical = vertical
 
-        # Scale the road slice to create a sense of perspective (smaller at the top)
-        scale_factor = (140 - i) / 300
-        scaled_slice = pygame.transform.scale(road_slice, (int(road_texture.get_width() * scale_factor), 1))
+        # Keep drawing the road while vertical is greater than or equal to the last position
+        while vertical >= last_vertical and draw_distance < 120:
+            draw_distance += draw_distance / 600  # Increment draw distance
 
-        # Color the road based on depth
-        color = (int(50 - i / 3), int(130 - i), int(50 + 30 * math.sin(x)))
-        pygame.draw.rect(screen, color, (0, 239 - i, 320, 1))
+            x = car_x + draw_distance  # Update x position based on draw distance
+            scale = 1 / draw_distance  # Calculate scale for perspective
 
-        # Center the scaled road slice horizontally
-        slice_x = (SCREEN_WIDTH - scaled_slice.get_width()) // 2
+            # Simulate the z-axis (depth effect) with sine waves
+            z = 200 + 80 * math.sin(x / 17) - 140 * math.sin(x / 8)
 
-        # Blit the scaled road slice onto the screen
-        screen.blit(scaled_slice, (horizontal, 239 - i))
+            # Update vertical position based on scale
+            vertical = int(80 + 180 * scale + z * scale)
+
+            if draw_distance < 115:
+                # Clamp vertical to be within screen height (z_buffer size)
+                vertical_clamped = max(0, min(SCREEN_HEIGHT - 1, int(vertical)))
+
+                # Ensure z_buffer remains in bounds
+                z_buffer[vertical_clamped] = draw_distance
+
+                # Calculate the horizontal position based on the perspective scale
+                # Drastic hills: modifying y to create larger vertical shifts
+                y = 200 * math.sin(x / 15) + 250 * math.sin(x / 7)
+
+                # Horizontal positioning based on perspective scaling
+                horizontal = int(160 - (120 - y) * scale)
+
+                road_slice = road_texture.subsurface((0, int(10 * x % 170), 320, 1))
+
+                # Clamp color values to avoid invalid arguments
+                color = (
+                    max(0, min(255, int(50 - draw_distance / 3))),  # Red value
+                    max(0, min(255, int(130 - draw_distance))),     # Green value
+                    max(0, min(255, int(50 - z / 20 + 30 * math.sin(x))))  # Blue value
+                )
+
+                # Draw a rectangle for the road slice with the calculated color
+                pygame.draw.rect(screen, color, (0, vertical_clamped, 320, 1))
+
+                # Extract a road slice from the texture
+                road_slice = road_texture.subsurface(0, int(x % road_texture.get_height()), road_texture.get_width(), 1)
+
+                # Scale the road slice based on the perspective scale
+                scaled_slice = pygame.transform.scale(road_slice, (int(500 * scale), 1))
+
+                # Blit the scaled road slice onto the screen at the calculated horizontal position
+                screen.blit(scaled_slice, (horizontal, vertical_clamped))
+
+        # Adjust vertical for the next slice
+        vertical += 1
 
     # Update the display with the road drawn
     pygame.display.update()

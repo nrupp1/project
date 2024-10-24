@@ -78,7 +78,7 @@ while running:
                 pygame.draw.rect(screen, color, (0, vertical_clamped, 320, 1))
 
                 # Extract a road slice from the texture
-                road_slice = road_texture.subsurface(0, int(x % road_texture.get_height()), road_texture.get_width(), 1)
+                road_slice = road_texture.subsurface((0, 10*x%170,320, 1))
 
                 # Scale the road slice based on the perspective scale
                 scaled_slice = pygame.transform.scale(road_slice, (int(500 * scale), 1))

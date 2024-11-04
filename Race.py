@@ -1,96 +1,160 @@
+import asyncio
+from itertools import count
+
 import pygame
-import math
+import sys, platform, math, random
 
-# Initialize pygame
-pygame.init()
+async def main ():
+    screen_size = [320, 180]
+    if sys.platform == "emscripten":
+        platform.window.canvas.style.imageRendering = "pixelated"
+        screen = pygame.display.set_mode (screen_size)
+    else:
+        screen = pygame.display.set_mode (screen_size, pygame.SCALED)
 
-# Set up the display
-SCREEN_WIDTH, SCREEN_HEIGHT = 320, 240
-screen_size = (SCREEN_WIDTH, SCREEN_HEIGHT)
-screen = pygame.display.set_mode(screen_size, pygame.SCALED)
-pygame.display.set_caption("Don't Crash!!")
+    clock = pygame.time.Clock ()
+    clock.tick ();
+    pygame.time.wait (16)
+    road_texture = pygame.image.load ("road3.png").convert ()
+    car_sprite = pygame.image.load ("car1.png")
+    car_sprite2 = pygame.image.load ("facingcar.png").convert ()
+    car_sprite2.set_colorkey((0,0,0))
+    tree_sprite = pygame.image.load ("tree.png")
 
-# Load road textures
-road_texture = pygame.image.load("road3.png")
+    car = Player ()
+    cars = [Car (-50), Car (-23), Car (7)]
+    trees = [Tree (-67), Tree (-55), Tree (-43), Tree (-33), Tree (-25), Tree (-13), Tree (-3)]
 
-# Clock for managing time and speed
-clock = pygame.time.Clock()
+    running = 1
+    total_time = 0
 
-car_x = 0  # Starting car x-position
-running = True
+    while running:  # game loop
+        global count
+        delta = clock.tick () / 1000 + 0.00001
+        total_time += delta
+        car.controls (delta)
 
-while running:
-    delta = clock.tick() / 1000 + 0.00001  # Calculate delta time
-    car_x += delta * 10  # Updated speed to match the provided ideas
+        for event in pygame.event.get ():
+            if event.type == pygame.QUIT: running = 0
 
-    # Handle quitting
-    for event in pygame.event.get():
-        if event.type == pygame.QUIT:
-            running = False
-
-    # Fill background with sky color
-    screen.fill((100, 150, 250))
-
-    # Initialize vertical position and draw distance
-    vertical, draw_distance = 180, 1
-    z_buffer = [999 for _ in range(SCREEN_HEIGHT)]  # Adjusted to match screen height
-
-    while draw_distance < 115:
-        last_vertical = vertical
-
-        # Keep drawing the road while vertical is greater than or equal to the last position
-        while vertical >= last_vertical and draw_distance < 120:
-            draw_distance += draw_distance / 600  # Increment draw distance
-
-            x = car_x + draw_distance  # Update x position based on draw distance
-            scale = 1 / draw_distance  # Calculate scale for perspective
-
-            # Simulate the z-axis (depth effect) with sine waves
-            z = 200 + 80 * math.sin(x / 17) - 140 * math.sin(x / 8)
-
-            # Update vertical position based on scale
-            vertical = int(80 + 180 * scale + z * scale)
+        screen.fill((100,150,250))
+        vertical, draw_distance = 180, 1
+        car.z = calc_z (car.x)
+        z_buffer = [999 for element in range (180)]
+        while draw_distance < 120:
+            last_vertical = vertical
+            while vertical >= last_vertical and draw_distance < 120:
+                draw_distance += draw_distance / 150
+                x = car.x + draw_distance
+                scale = 1 / draw_distance
+                z = calc_z (x) - car.z
+                vertical = int (60 + 160 * scale + z * scale)
 
             if draw_distance < 115:
-                # Clamp vertical to be within screen height (z_buffer size)
-                vertical_clamped = max(0, min(SCREEN_HEIGHT - 1, int(vertical)))
+                z_buffer[int (vertical)] = draw_distance
+                road_slice = road_texture.subsurface ((0, 10 * x % 170, 320, 1))
+                color = (int (70 - draw_distance / 3), int (160 - draw_distance), int (70 - z / 20 + 30 * math.sin (x)))
+                pygame.draw.rect (screen, color, (0, vertical, 320, 1))
+                render_element (screen, road_slice, 500 * scale, 1, scale, x, car, 70 + car.y, z_buffer)
 
-                # Ensure z_buffer remains in bounds
-                z_buffer[vertical_clamped] = draw_distance
+        for index in reversed (range (len (trees) - 1)):
+            scale = max (0.0001, 1 / (trees[index].x - car.x))
+            render_element (screen, tree_sprite, 200 * scale, 300 * scale, scale, trees[index].x, car,
+                            trees[index].y + car.y, z_buffer)
 
-                # Calculate the horizontal position based on the perspective scale
-                # Drastic hills: modifying y to create larger vertical shifts
-                y = 200 * math.sin(x / 15) + 250 * math.sin(x / 7)
+        if trees[0].x < car.x + 1:
+            trees.pop (0)
+            trees.append (Tree (trees[-1].x))
+            count = 0
+        for index in reversed (range (len (cars) - 1)):
+            scale = max (0.0001, 1 / (cars[index].x - car.x))
+            render_element (screen, car_sprite2, 100 * scale, 80 * scale, scale, cars[index].x, car, (-140 + car.y) * 1.7,
+                            z_buffer)
 
-                # Horizontal positioning based on perspective scaling
-                horizontal = int(160 - (120 - y) * scale)
+            cars[index].x -= 10 * delta
 
-                road_slice = road_texture.subsurface((0, int(10 * x % 170), 320, 1))
+        if cars[0].x < car.x + 1:
+            cars.pop (0)
+            cars.append (Car (car.x))
 
-                # Clamp color values to avoid invalid arguments
-                color = (
-                    max(0, min(255, int(50 - draw_distance / 3))),  # Red value
-                    max(0, min(255, int(130 - draw_distance))),     # Green value
-                    max(0, min(255, int(50 - z / 20 + 30 * math.sin(x))))  # Blue value
-                )
+        screen.blit (car_sprite, (120, 120 + math.sin (total_time * car.velocity)))
 
-                # Draw a rectangle for the road slice with the calculated color
-                pygame.draw.rect(screen, color, (0, vertical_clamped, 320, 1))
+        if abs (car.y - calc_y (car.x + 2) - 100) > 280 and car.velocity > 5:
+            car.velocity += -car.velocity * delta
+            car.acceleration += -car.acceleration * delta
+            pygame.draw.circle (screen, (255, 0, 0), (300, 170), 3)
+        pygame.display.update ()
 
-                # Extract a road slice from the texture
-                road_slice = road_texture.subsurface((0, 10*x%170,320, 1))
+        await asyncio.sleep (0)
 
-                # Scale the road slice based on the perspective scale
-                scaled_slice = pygame.transform.scale(road_slice, (int(500 * scale), 1))
 
-                # Blit the scaled road slice onto the screen at the calculated horizontal position
-                screen.blit(scaled_slice, (horizontal, vertical_clamped))
+class Tree ():
+    def __init__ (self, distance):
+        self.x = distance + random.randint (10, 20) + 0.5
+        self.y = random.randint (500, 1500) * random.choice ([-1, 1])
 
-        # Adjust vertical for the next slice
-        vertical += 1
 
-    # Update the display with the road drawn
-    pygame.display.update()
+def calc_y (x):
+    return 200 * math.sin (x / 15) + 250 * math.sin (x / 7)
 
-# Quit pygame
-pygame.quit()
+
+def calc_z (x):
+    return 200 + 80 * math.sin (x / 17) - 140 * math.sin (x / 8)
+
+def render_element (screen, sprite, width, height, scale, x, car, y, z_buffer):
+    y = calc_y (x) - y
+    z = calc_z (x) - car.z
+
+    vertical = int (60 + 160 * scale + z * scale)
+    if vertical >= 1 and vertical < 180 and z_buffer[vertical - 1] > 1 / scale - 10:
+        horizontal = int (160 - (65 - y) * scale) + car.angle * (vertical - 150)
+
+        scaled_sprite = pygame.transform.scale (sprite, (width, height))
+        screen.blit (scaled_sprite, (horizontal, vertical - height + 1))
+
+class Car ():
+    def __init__ (self, distance):
+        self.x = distance + random.randint (90, 110)
+
+
+class Player ():
+    def __init__ (self):
+        self.x = 0
+        self.y = 300
+        self.z = 0
+        self.angle = 0
+        self.velocity = 0
+        self.acceleration = 0
+
+    def controls (self, delta):
+        pressed_keys = pygame.key.get_pressed ()
+        self.acceleration += -0.5 * self.acceleration * delta
+        self.velocity += -0.5 * self.velocity * delta
+
+        if pressed_keys[pygame.K_w] or pressed_keys[pygame.K_UP]:
+            if self.velocity > -1:
+                self.acceleration += 4 * delta
+            else:
+                self.acceleration = 0
+                self.velocity += -self.velocity * delta
+        elif pressed_keys[pygame.K_s] or pressed_keys[pygame.K_DOWN]:
+            if self.velocity < 1:
+                self.acceleration -= delta
+            else:
+                self.acceleration = 0
+                self.velocity += -self.velocity * delta
+        if pressed_keys[pygame.K_a] or pressed_keys[pygame.K_LEFT]:
+            self.angle -= delta * self.velocity / 10
+        elif pressed_keys[pygame.K_d] or pressed_keys[pygame.K_RIGHT]:
+            self.angle += delta * self.velocity / 10
+        self.velocity = max (-10, min (self.velocity, 20))
+        self.angle = max (-0.8, (min (0.8, self.angle)))
+        self.velocity += self.acceleration * delta
+        self.x += self.velocity * delta * math.cos (self.angle)
+        self.y += self.velocity * math.sin (self.angle) * delta * 100
+
+
+if __name__ == "__main__":
+    pygame.init ()
+    asyncio.run (main ())
+    pygame.quit ()

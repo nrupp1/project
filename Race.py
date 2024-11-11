@@ -15,10 +15,9 @@ async def main ():
     clock = pygame.time.Clock ()
     clock.tick ();
     pygame.time.wait (16)
-    road_texture = pygame.image.load ("road3.png").convert ()
-    car_sprite = pygame.image.load ("car1.png")
-    car_sprite2 = pygame.image.load ("facingcar.png").convert ()
-    car_sprite2.set_colorkey((0,0,0))
+    road_texture = pygame.image.load ("road.png").convert()
+    car_sprite = pygame.image.load ("car.png").convert_alpha()
+    car_sprite2 = pygame.image.load ("facingcar.png").convert_alpha()
     tree_sprite = pygame.image.load ("tree.png")
 
     car = Player ()
@@ -27,6 +26,10 @@ async def main ():
 
     running = 1
     total_time = 0
+
+    collision_occurred = False
+    collision_sound = pygame.mixer.Sound("collapse-101soundboards.mp3")
+    collision_sound.set_volume(0.2)
 
     while running:  # game loop
         global count
@@ -37,7 +40,7 @@ async def main ():
         for event in pygame.event.get ():
             if event.type == pygame.QUIT: running = 0
 
-        screen.fill((100,150,250))
+        screen.fill((100,180,250))
         vertical, draw_distance = 180, 1
         car.z = calc_z (car.x)
         z_buffer = [999 for element in range (180)]
@@ -56,6 +59,7 @@ async def main ():
                 color = (int (70 - draw_distance / 3), int (160 - draw_distance), int (70 - z / 20 + 30 * math.sin (x)))
                 pygame.draw.rect (screen, color, (0, vertical, 320, 1))
                 render_element (screen, road_slice, 500 * scale, 1, scale, x, car, 70 + car.y, z_buffer)
+
 
         for index in reversed (range (len (trees) - 1)):
             scale = max (0.0001, 1 / (trees[index].x - car.x))
@@ -77,7 +81,27 @@ async def main ():
             cars.pop (0)
             cars.append (Car (car.x))
 
+            # Update player car position and create mask and rect
+            player_car_rect = car_sprite.get_rect(topleft=(100, 100 + math.sin(total_time * car.velocity)))
+            player_car_mask = pygame.mask.from_surface(car_sprite)
+
+            # Update enemy car position and create mask and rect
+            enemy_car_rect = car_sprite2.get_rect(topleft=(70, 50) ) # Adjust as needed
+            enemy_car_mask = pygame.mask.from_surface(car_sprite2)
+
+            # Collision detection with mask
+            offset = (enemy_car_rect.x - player_car_rect.x, enemy_car_rect.y - player_car_rect.y)
+            if player_car_mask.overlap(enemy_car_mask, offset):
+                if not collision_occurred:
+                    collision_sound.play()
+
+            else:
+                # Reset the flag when there is no collision
+                collision_occurred = False
+
+        #Bliting everything
         screen.blit (car_sprite, (120, 120 + math.sin (total_time * car.velocity)))
+
 
         if abs (car.y - calc_y (car.x + 2) - 100) > 280 and car.velocity > 5:
             car.velocity += -car.velocity * delta
@@ -112,6 +136,7 @@ def render_element (screen, sprite, width, height, scale, x, car, y, z_buffer):
         scaled_sprite = pygame.transform.scale (sprite, (width, height))
         screen.blit (scaled_sprite, (horizontal, vertical - height + 1))
 
+
 class Car ():
     def __init__ (self, distance):
         self.x = distance + random.randint (90, 110)
@@ -131,18 +156,35 @@ class Player ():
         self.acceleration += -0.5 * self.acceleration * delta
         self.velocity += -0.5 * self.velocity * delta
 
+        #Sounds for the player car
+        driving_sound = pygame.mixer.Sound("GT2_13201_2.wav")
+        driving_sound.set_volume(0.2)
+        brake_sound = pygame.mixer.Sound("brake-101soundboards.mp3")
+        brake_sound.set_volume(0.2)
+
+        if not hasattr(self, 'brake_sound_played'):
+            self.brake_sound_played = False
+
         if pressed_keys[pygame.K_w] or pressed_keys[pygame.K_UP]:
             if self.velocity > -1:
                 self.acceleration += 4 * delta
+                if not pygame.mixer.get_busy():
+                    driving_sound.play()
             else:
                 self.acceleration = 0
                 self.velocity += -self.velocity * delta
+
         elif pressed_keys[pygame.K_s] or pressed_keys[pygame.K_DOWN]:
             if self.velocity < 1:
                 self.acceleration -= delta
+                if not self.brake_sound_played:
+                    brake_sound.play()
+                    self.brake_sound_played = True
             else:
                 self.acceleration = 0
                 self.velocity += -self.velocity * delta
+                self.brake_sound_played = False
+
         if pressed_keys[pygame.K_a] or pressed_keys[pygame.K_LEFT]:
             self.angle -= delta * self.velocity / 10
         elif pressed_keys[pygame.K_d] or pressed_keys[pygame.K_RIGHT]:

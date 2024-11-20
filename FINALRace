@@ -212,8 +212,15 @@ def main_menu ():
 
         if not music_screen and not car_screen:
             # Display Highscore
-            highscore_text = small_font.render (f"Highscore: {highscore:.2f}s", True, WHITE)
-            screen.blit (highscore_text, (SCREENWIDTH / 2 - 60, 50))
+            # Convert highscore into hours, minutes, and seconds
+            highscore_hours = int(highscore // 3600)  # 1 hour = 3600 seconds
+            highscore_minutes = int((highscore % 3600) // 60)  # 1 minute = 60 seconds
+            highscore_seconds = int(highscore % 60)  # Remaining seconds
+
+            # Render the highscore text
+            highscore_text = small_font.render(
+                f"Highscore: {highscore_hours:02}:{highscore_minutes:02}:{highscore_seconds:02}s", True, WHITE)
+            screen.blit(highscore_text, ((SCREENWIDTH /  2) - 80, 50))
 
             pygame.draw.rect (screen, LIGHT_GRAY, start_button)
             pygame.draw.rect (screen, LIGHT_GRAY, music_button)
@@ -266,7 +273,12 @@ def game_loop ():
     car = Player ()
     cars = [Car (-50), Car (-23), Car (7)]
     trees = [Tree (-67), Tree (-55), Tree (-43), Tree (-33), Tree (-25), Tree (-13), Tree (-3)]
+    if collision_occurred:
+        # Clear all lists or variables representing game elements
+        cars.clear()
+        trees.clear()
 
+    realtime = False
     running = True
     total_time = 0
     collision_occurred = False
@@ -281,30 +293,42 @@ def game_loop ():
         horizontal = int (160 - (65 - calc_y (draw_distance)) * scale) + car.angle * (vertical - 150)
         return horizontal, vertical
 
+    # Maximum scale for the enemy car sprite
+    MAX_ENEMY_CAR_SCALE = 0.5  # Adjust this value based on your needs
+
+    # Main game loop
     while running:
-        delta = clock.tick () / 1000 + 0.00001
+        delta = clock.tick() / 1000 + 0.00001
         total_time += delta
-        car.controls (delta)
-        if collision_occurred == True:
+        car.controls(delta)
+
+        if collision_occurred:
+            # Reset all key variables to default state
+            vertical = 0
+            horizontal = 0
+            z = 0
+            scale = 0
+            draw_distance = 0
             total_time = 0
             delta = 0
+            # Reset player car properties
             car.angle = 0
             car.velocity = 0
             car.acceleration = 0
-            car.x = 0
-            car.y = 300
+            car.x = 1
+            car.y = 0
             car.z = 0
             collision_occurred = False
-        for event in pygame.event.get ():
+
+        for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 running = False
                 return 'QUIT'
 
-        screen.fill ((100, 180, 250))
+        screen.fill((100, 180, 250))
         vertical, draw_distance = 180, 1
-        car.z = calc_z (car.x)
-        z_buffer = [999 for _ in range (180)]
-
+        car.z = calc_z(car.x)
+        z_buffer = [999 for _ in range(180)]
 
         while draw_distance < 120:
             last_vertical = vertical
@@ -312,106 +336,108 @@ def game_loop ():
                 draw_distance += draw_distance / 150
                 x = car.x + draw_distance
                 scale = 1 / draw_distance
-                z = calc_z (x) - car.z
-                vertical = int (60 + 160 * scale + z * scale)
+                z = calc_z(x) - car.z
+                vertical = int(60 + 160 * scale + z * scale)
 
             if draw_distance < 115:
-                z_buffer[int (vertical)] = draw_distance
-                road_slice = road_texture.subsurface ((0, 10 * x % 170, 320, 1))
+                z_buffer[int(vertical)] = draw_distance
+                road_slice = road_texture.subsurface((0, 10 * x % 170, 320, 1))
                 color = (
-                    int (70 - draw_distance / 3), int (160 - draw_distance),
-                    int (70 - z / 20 + 30 * math.sin (x))
+                    int(70 - draw_distance / 3), int(160 - draw_distance),
+                    int(70 - z / 20 + 30 * math.sin(x))
                 )
-                pygame.draw.rect (screen, color, (0, 60 + vertical, 320, 1))
-                render_element (screen, road_slice, 600 * scale, 1, scale, x, car, 70 + car.y, z_buffer)
+                pygame.draw.rect(screen, color, (0, 60 + vertical, 320, 1))
+                render_element(screen, road_slice, 600 * scale, 1, scale, x, car, 70 + car.y, z_buffer)
 
-        for index in reversed (range (len (trees) - 1)):
-            scale = max (0.0001, 1 / (trees[index].x - car.x))
-            render_element (screen, tree_sprite, 200 * scale, 300 * scale, scale, trees[index].x, car,
-                            trees[index].y + car.y, z_buffer)
+        for index in reversed(range(len(trees) - 1)):
+            tree_scale = max(0.0001, 1 / (trees[index].x - car.x))
+            render_element(screen, tree_sprite, 200 * tree_scale, 300 * tree_scale, tree_scale, trees[index].x, car,
+                           trees[index].y + car.y, z_buffer)
 
         if trees[0].x < car.x + 1:
-            trees.pop (0)
-            trees.append (Tree (trees[-1].x))
+            trees.pop(0)
+            trees.append(Tree(trees[-1].x))
 
-        for index in reversed (range (len (cars) - 1)):
+        # Loop through enemy cars
+        for index in reversed(range(len(cars) - 1)):
             draw_distance = cars[index].x
-            scale = max (0.0001, 1 / (cars[index].x - car.x))
+            # Create a new variable specifically for enemy car scale to cap its size
+            enemy_car_scale = max(0.0001, 1 / (cars[index].x - car.x))
 
-            # Scale car sprite before rendering
-            scaled_car_sprite2 = pygame.transform.scale (
-                car_sprite2, (int (car_sprite2.get_width () * scale), int (car_sprite2.get_height () * scale))
+            # Cap the enemy car scale at a maximum value
+            enemy_car_scale = min(enemy_car_scale, MAX_ENEMY_CAR_SCALE)
+
+            # Scale the enemy car sprite based on the capped scale
+            scaled_enemy_car_sprite = pygame.transform.scale(
+                car_sprite2,
+                (int(car_sprite2.get_width() * enemy_car_scale), int(car_sprite2.get_height() * enemy_car_scale))
             )
-            render_element (
-                screen, scaled_car_sprite2, 100 * scale, 80 * scale, scale, cars[index].x, car,
+
+            # Render the enemy car with the capped scale
+            render_element(
+                screen, scaled_enemy_car_sprite, 100 * enemy_car_scale, 80 * enemy_car_scale, enemy_car_scale,
+                cars[index].x, car,
                 (-140 + car.y), z_buffer
             )
-            # Calculate enemy car's position using render_element logic
-            horizontal, vertical = calc_vertical (draw_distance, car.z, scale, z_buffer, index)
-            # Create a hitbox based on scaled sprite dimensions
-            if vertical- scaled_car_sprite2.get_height () * (-scale) + cars[index].x > car.y + 1:
-                enemy_car_rect = scaled_car_sprite2.get_rect (
-                    topleft=(0, 0))
-            if collision_occurred:
-                enemy_car_rect = scaled_car_sprite2.get_rect (
-                    topleft=(0, 0))
-                pygame.time.wait (1000)
-                collision_occurred = False
-            elif car.x < 10:
-                    enemy_car_rect = scaled_car_sprite2.get_rect (
-                        topleft=((100 + horizontal - cars[index].x) - car.x,
-                                 vertical - scaled_car_sprite2.get_height () * (-scale) + cars[index].x))
-            else:
-                    enemy_car_rect = scaled_car_sprite2.get_rect (
-                        topleft=(230 + (-horizontal) + cars[index].x,
-                                 vertical - scaled_car_sprite2.get_height () * (-scale) + (cars[index].x - car.angle))
-                    )
 
+            # Calculate position of the enemy car for the hitbox
+            y = calc_y(cars[index].x) - (-140 + car.y)
+            z = calc_z(cars[index].x) - car.z
+            vertical = int(60 + 160 * enemy_car_scale + z * enemy_car_scale)
+
+            if 1 <= vertical < 180:
+                horizontal = int(160 - (65 - y) * enemy_car_scale) + car.angle * (vertical - 150)
+                enemy_car_rect = scaled_enemy_car_sprite.get_rect(
+                    topleft=(2 + horizontal, 60 + vertical - scaled_enemy_car_sprite.get_height() + 1)
+                )
+
+            # Update enemy car position
             cars[index].x -= 10 * delta
 
-            # Ensure new cars are added
+            # If the enemy car moves out of range, replace it
             if cars[0].x < car.x + 1:
-                cars.pop (0)
-                cars.append (Car (car.x))
+                cars.pop(0)
+                cars.append(Car(cars[-1].x + 50))  # Adjust spawn distance as needed
 
-            player_car_rect = car_sprite.get_rect (topleft=(120, 180 + math.sin (total_time * car.velocity)))
+            # Player car rect and mask
+            player_car_rect = car_sprite.get_rect(topleft=(120, 180 + math.sin(total_time * car.velocity)))
+            player_car_mask = pygame.mask.from_surface(car_sprite)
 
-            # Create masks from the scaled and original sprites
-            player_car_mask = pygame.mask.from_surface (car_sprite)
-            enemy_car_mask = pygame.mask.from_surface (scaled_car_sprite2)
+            # Enemy car mask
+            enemy_car_mask = pygame.mask.from_surface(scaled_enemy_car_sprite)
 
-            offset = (enemy_car_rect.left - player_car_rect.left, enemy_car_rect.top - player_car_rect.top)
-
-            collision_check = player_car_mask.overlap (enemy_car_mask, offset)
-
-            if collision_check:
+            # Collision detection using masks
+            offset = (
+                round(1 + enemy_car_rect.left - 1 - player_car_rect.left),
+                round(enemy_car_rect.top - player_car_rect.top)
+            )
+            if player_car_mask.overlap(enemy_car_mask, offset):
                 if not collision_occurred:
-                    collision_sound.play ()
+                    collision_sound.play()
                     collision_occurred = True
-                    main_menu ()
-                    print ("Collision Detected!")
+                    print("Collision Detected!")
+                    main_menu()
             else:
                 collision_occurred = False
 
-            # Draw enemy car hitbox
-            pygame.draw.rect (screen, (255, 0, 0), enemy_car_rect, 2)
-
-        # Draw player car hitbox
-        pygame.draw.rect (screen, (0, 255, 0), player_car_rect, 2)
-
-        screen.blit (car_sprite, (120, 180 + math.sin (total_time * car.velocity)))
+        # Render player car
+        screen.blit(car_sprite, (120, 180 + math.sin(total_time * car.velocity)))
         pygame.display.flip ()
 
+        # Convert total_time into hours, minutes, and seconds
+        hours = int(total_time // 3600)  # 1 hour = 3600 seconds
+        minutes = int((total_time % 3600) // 60)  # 1 minute = 60 seconds
+        seconds = int(total_time % 60)  # Remaining seconds
         # Render the timer
-        font = pygame.font.Font (None, 36)
-        timer_text = font.render (f"Time: {total_time:.2f}s", True, (255, 255, 255))
-        screen.blit (timer_text, (10, 10))
-        pygame.display.update ()
+        font = pygame.font.Font(None, 36)
+        timer_text = font.render(f"Time: {hours:02}:{minutes:02}:{seconds:02}", True, (255, 255, 255))
+        screen.blit(timer_text, (10, 10))
+        pygame.display.update()
 
         if total_time > highscore:
             highscore = total_time
 
-        if abs (car.y - calc_y (car.x + 2) - 100) > 280 and car.velocity > 5:
+        if abs (car.y - calc_y (car.x + 2) - 95) > 340 and car.velocity > 5:
             # Scale car sprite before rendering
             car.velocity += -car.velocity * delta
             car.acceleration += -car.acceleration * delta

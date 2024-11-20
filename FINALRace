@@ -20,6 +20,24 @@ songs = [
     "1-109. Bowser's Castle_.mp3"
 ]
 cars_images = ["car1.png", "car2.png", "car3.png", "car4.png", "car5.png", "car6.png"]
+# Define the environment colors (Grass, Desert, Snow)
+environments = [
+    (lambda draw_distance, z, x: (
+        max(0, min(255, int(34 - draw_distance / 3))),  # Grass green
+        max(0, min(255, int(139 - draw_distance))),
+        max(0, min(255, int(34 - z / 20 + 30 * math.sin(x))))
+    )),
+    (lambda draw_distance, z, x: (
+        max(0, min(255, int(222 - draw_distance / 3))),  # Desert tan
+        max(0, min(255, int(200 - draw_distance / 2))),
+        max(0, min(255, int(135 - z / 20 + 30 * math.sin(x))))
+    )),
+    (lambda draw_distance, z, x: (
+        max (0, min (255, int (280 - z / 20 + 30 * math.sin (x)))),  # Snow white
+        max (0, min (255, int (280 - z / 20 + 30 * math.sin (x)))),
+        max (0, min (255, int (300 - z / 20 + 30 * math.sin (x))))  # Cooler hue
+    )),
+]
 current_song_index = 0
 current_car_index = 0
 music_playing = False
@@ -45,10 +63,11 @@ tree_sprite = pygame.image.load ("tree.png")
 
 
 
-def play_music (song_index):
+def play_music(song_index):
     """Play the selected song."""
-    pygame.mixer.music.load (songs[song_index])
-    pygame.mixer.music.play (-1)
+    pygame.mixer.music.load(songs[current_song_index])
+    pygame.mixer.music.set_volume(0.5)  # Adjust volume for balance
+    pygame.mixer.music.play(-1)
 
 
 class Tree:
@@ -105,25 +124,29 @@ class Player:
         if not hasattr (self, 'brake_sound_played'):
             self.brake_sound_played = False
 
+        # Accelerate
         if pressed_keys[pygame.K_w] or pressed_keys[pygame.K_UP]:
             if self.velocity > -1:
                 self.acceleration += 4 * delta
-                if not pygame.mixer.get_busy ():
-                    driving_sound.play ()
+                if not pygame.mixer.Channel (0).get_busy ():  # Ensure no overlap
+                    pygame.mixer.Channel (0).play (driving_sound)
             else:
                 self.acceleration = 0
                 self.velocity += -self.velocity * delta
+
+        # Brake
         elif pressed_keys[pygame.K_s] or pressed_keys[pygame.K_DOWN]:
             if self.velocity < 1:
                 self.acceleration -= delta
                 if not self.brake_sound_played:
-                    brake_sound.play ()
+                    pygame.mixer.Channel (1).play (brake_sound)  # Use another channel
                     self.brake_sound_played = True
             else:
                 self.acceleration = 0
                 self.velocity += -self.velocity * delta
                 self.brake_sound_played = False
 
+        # Steering
         if pressed_keys[pygame.K_a] or pressed_keys[pygame.K_LEFT]:
             self.angle -= (delta * self.velocity / 10) % 1
         elif pressed_keys[pygame.K_d] or pressed_keys[pygame.K_RIGHT]:
@@ -216,10 +239,11 @@ def main_menu ():
             highscore_hours = int(highscore // 3600)  # 1 hour = 3600 seconds
             highscore_minutes = int((highscore % 3600) // 60)  # 1 minute = 60 seconds
             highscore_seconds = int(highscore % 60)  # Remaining seconds
+            highscore_milliseconds = int ((highscore % 1) * 1000)
 
             # Render the highscore text
             highscore_text = small_font.render(
-                f"Highscore: {highscore_hours:02}:{highscore_minutes:02}:{highscore_seconds:02}s", True, WHITE)
+                f"Highscore: {highscore_hours:02}:{highscore_minutes:02}:{highscore_seconds:02}s.{highscore_milliseconds:03}s", True, WHITE)
             screen.blit(highscore_text, ((SCREENWIDTH /  2) - 80, 50))
 
             pygame.draw.rect (screen, LIGHT_GRAY, start_button)
@@ -258,7 +282,7 @@ def main_menu ():
         pygame.display.flip ()
 
 def game_loop ():
-    global highscore, collision_occurred, car_sprite, current_song_index
+    global highscore, collision_occurred, car_sprite, current_song_index, tree_sprite, current_environment_index, music_playing, cars, trees
 
     screen = pygame.display.set_mode (screen_size, pygame.SCALED)
     pygame.display.set_caption ("Game Running")
@@ -270,13 +294,14 @@ def game_loop ():
     car_sprite2 = pygame.image.load ("facingcar.png").convert_alpha ()
     tree_sprite = pygame.image.load ("tree.png")
 
-    car = Player ()
-    cars = [Car (-50), Car (-23), Car (7)]
-    trees = [Tree (-67), Tree (-55), Tree (-43), Tree (-33), Tree (-25), Tree (-13), Tree (-3)]
     if collision_occurred:
         # Clear all lists or variables representing game elements
         cars.clear()
         trees.clear()
+
+    car = Player ()
+    cars = [Car (-50), Car (-23), Car (7)]
+    trees = [Tree (-67), Tree (-55), Tree (-43), Tree (-33), Tree (-25), Tree (-13), Tree (-3)]
 
     realtime = False
     running = True
@@ -302,30 +327,41 @@ def game_loop ():
         total_time += delta
         car.controls(delta)
 
-        if collision_occurred:
-            # Reset all key variables to default state
-            vertical = 0
-            horizontal = 0
-            z = 0
-            scale = 0
-            draw_distance = 0
-            total_time = 0
-            delta = 0
-            # Reset player car properties
-            car.angle = 0
-            car.velocity = 0
-            car.acceleration = 0
-            car.x = 1
-            car.y = 0
-            car.z = 0
-            collision_occurred = False
-
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 running = False
                 return 'QUIT'
 
+            if collision_occurred:
+                # Reset all key variables to default state
+                vertical = 0
+                horizontal = 0
+                z = 0
+                scale = 0
+                draw_distance = 0
+                total_time = 0
+                delta = 0
+                # Reset player car properties
+                car.angle = 0
+                car.velocity = 0
+                car.acceleration = 0
+                car.x = 0
+                car.y = 0
+                car.z = 0
+                total_time = 0
+                collision_occurred = False
+                music_playing = False
+
         screen.fill((100, 180, 250))
+        # Convert total_time into hours, minutes, and seconds
+        hours = int (total_time // 3600)  # 1 hour = 3600 seconds
+        minutes = int ((total_time % 3600) // 60)  # 1 minute = 60 seconds
+        seconds = int (total_time % 60)  # Remaining seconds
+        milliseconds = int ((total_time % 1) * 1000)
+        # Render the timer
+        font = pygame.font.Font (None, 36)
+        timer_text = font.render (f"Time: {hours:02}:{minutes:02}:{seconds:02}.{milliseconds:03}", True, (255, 255, 255))
+        screen.blit (timer_text, (10, 10))
         vertical, draw_distance = 180, 1
         car.z = calc_z(car.x)
         z_buffer = [999 for _ in range(180)]
@@ -342,14 +378,19 @@ def game_loop ():
             if draw_distance < 115:
                 z_buffer[int(vertical)] = draw_distance
                 road_slice = road_texture.subsurface((0, 10 * x % 170, 320, 1))
-                color = (
-                    int(70 - draw_distance / 3), int(160 - draw_distance),
-                    int(70 - z / 20 + 30 * math.sin(x))
-                )
+                # Determine the current environment based on elapsed time
+                current_environment_index = int (total_time) // 30 % len (environments)
+                current_color_func = environments[current_environment_index]
+                # Calculate the color based on the current environment
+                color = current_color_func (draw_distance, z, x)
                 pygame.draw.rect(screen, color, (0, 60 + vertical, 320, 1))
                 render_element(screen, road_slice, 600 * scale, 1, scale, x, car, 70 + car.y, z_buffer)
 
         for index in reversed(range(len(trees) - 1)):
+            if current_environment_index == 1:
+                tree_sprite = pygame.image.load ("cactus.png")
+            else:
+                tree_sprite = pygame.image.load ("tree.png")
             tree_scale = max(0.0001, 1 / (trees[index].x - car.x))
             render_element(screen, tree_sprite, 200 * tree_scale, 300 * tree_scale, tree_scale, trees[index].x, car,
                            trees[index].y + car.y, z_buffer)
@@ -377,11 +418,11 @@ def game_loop ():
             render_element(
                 screen, scaled_enemy_car_sprite, 100 * enemy_car_scale, 80 * enemy_car_scale, enemy_car_scale,
                 cars[index].x, car,
-                (-140 + car.y), z_buffer
+                -45+ car.angle + 20, z_buffer
             )
 
             # Calculate position of the enemy car for the hitbox
-            y = calc_y(cars[index].x) - (-140 + car.y)
+            y = calc_y(cars[index].x) - (-45 + car.angle + 5)
             z = calc_z(cars[index].x) - car.z
             vertical = int(60 + 160 * enemy_car_scale + z * enemy_car_scale)
 
@@ -424,16 +465,6 @@ def game_loop ():
         screen.blit(car_sprite, (120, 180 + math.sin(total_time * car.velocity)))
         pygame.display.flip ()
 
-        # Convert total_time into hours, minutes, and seconds
-        hours = int(total_time // 3600)  # 1 hour = 3600 seconds
-        minutes = int((total_time % 3600) // 60)  # 1 minute = 60 seconds
-        seconds = int(total_time % 60)  # Remaining seconds
-        # Render the timer
-        font = pygame.font.Font(None, 36)
-        timer_text = font.render(f"Time: {hours:02}:{minutes:02}:{seconds:02}", True, (255, 255, 255))
-        screen.blit(timer_text, (10, 10))
-        pygame.display.update()
-
         if total_time > highscore:
             highscore = total_time
 
@@ -460,6 +491,11 @@ def main ():
 if __name__ == "__main__":
     main ()
 
+
+
+if __name__ == "__main__":
+    main()
+    pygame.quit()
 
 
 if __name__ == "__main__":

@@ -282,7 +282,7 @@ def main_menu ():
         pygame.display.flip ()
 
 def game_loop ():
-    global highscore, collision_occurred, car_sprite, current_song_index, tree_sprite, current_environment_index, music_playing, cars, trees
+    global highscore, collision_occurred, car_sprite, current_song_index, tree_sprite, current_environment_index, music_playing, cars, trees, enemy_position_offset
 
     screen = pygame.display.set_mode (screen_size, pygame.SCALED)
     pygame.display.set_caption ("Game Running")
@@ -399,6 +399,9 @@ def game_loop ():
             trees.pop(0)
             trees.append(Tree(trees[-1].x))
 
+            # Replace `-45 + car.angle + 20` with an improved positioning formula
+            enemy_position_offset = -30 + car.angle * 1.5
+
         # Loop through enemy cars
         for index in reversed(range(len(cars) - 1)):
             draw_distance = cars[index].x
@@ -418,7 +421,7 @@ def game_loop ():
             render_element(
                 screen, scaled_enemy_car_sprite, 100 * enemy_car_scale, 80 * enemy_car_scale, enemy_car_scale,
                 cars[index].x, car,
-                -45+ car.angle + 20, z_buffer
+                enemy_position_offset, z_buffer
             )
 
             # Calculate position of the enemy car for the hitbox
@@ -431,7 +434,6 @@ def game_loop ():
                 enemy_car_rect = scaled_enemy_car_sprite.get_rect(
                     topleft=(2 + horizontal, 60 + vertical - scaled_enemy_car_sprite.get_height() + 1)
                 )
-
             # Update enemy car position
             cars[index].x -= 10 * delta
 

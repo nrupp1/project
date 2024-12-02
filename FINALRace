@@ -1,4 +1,49 @@
+import pygame
+import math
+import random
+from pygame.locals import *
 
+# Global variables and settings
+SCREENHEIGHT = 240
+SCREENWIDTH = 320
+screen_size = (SCREENWIDTH, SCREENHEIGHT)
+highscore = 0
+
+BLACK = pygame.Color ('black')
+WHITE = pygame.Color ('white')
+LIGHT_GRAY = pygame.Color ('lightgray')
+
+# Music and car configurations
+songs = [
+    "68. Rainbow Road.mp3", "Magical Sound Shower.mp3",
+    "28. Coconut Mall.mp3", "04 A little good - Lightning.mp3",
+    "1-109. Bowser's Castle_.mp3"
+]
+cars_images = ["car1.png", "car2.png", "car3.png", "car4.png", "car5.png", "car6.png"]
+# Define the environment colors (Grass, Desert, Snow)
+environments = [
+    (lambda draw_distance, z, x: (
+        max(0, min(255, int(34 - draw_distance / 3))),  # Grass green
+        max(0, min(255, int(139 - draw_distance))),
+        max(0, min(255, int(34 - z / 20 + 30 * math.sin(x))))
+    )),
+    (lambda draw_distance, z, x: (
+        max(0, min(255, int(222 - draw_distance / 3))),  # Desert tan
+        max(0, min(255, int(200 - draw_distance / 2))),
+        max(0, min(255, int(135 - z / 20 + 30 * math.sin(x))))
+    )),
+    (lambda draw_distance, z, x: (
+        max (0, min (255, int (280 - z / 20 + 30 * math.sin (x)))),  # Snow white
+        max (0, min (255, int (280 - z / 20 + 30 * math.sin (x)))),
+        max (0, min (255, int (300 - z / 20 + 30 * math.sin (x))))  # Cooler hue
+    )),
+]
+current_song_index = 0
+current_car_index = 0
+music_playing = False
+music_screen = False
+car_screen = False
+buttons_visible = False
 collision_occurred = False
 running = True
 start = False
@@ -319,6 +364,8 @@ def game_loop ():
                 render_element(screen, road_slice, 600 * scale, 1, scale, x, car, 70 + car.y, z_buffer)
 
         for index in reversed(range(len(trees) - 1)):
+            if current_environment_index == 2:
+                tree_sprite = pygame.image.load("snowtree.png")
             if current_environment_index == 1:
                 tree_sprite = pygame.image.load ("cactus.png")
             else:

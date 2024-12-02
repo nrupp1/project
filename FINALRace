@@ -1,49 +1,4 @@
-import pygame
-import math
-import random
-from pygame.locals import *
 
-# Global variables and settings
-SCREENHEIGHT = 240
-SCREENWIDTH = 320
-screen_size = (SCREENWIDTH, SCREENHEIGHT)
-highscore = 0
-
-BLACK = pygame.Color ('black')
-WHITE = pygame.Color ('white')
-LIGHT_GRAY = pygame.Color ('lightgray')
-
-# Music and car configurations
-songs = [
-    "68. Rainbow Road.mp3", "Magical Sound Shower.mp3",
-    "28. Coconut Mall.mp3", "04 A little good - Lightning.mp3",
-    "1-109. Bowser's Castle_.mp3"
-]
-cars_images = ["car1.png", "car2.png", "car3.png", "car4.png", "car5.png", "car6.png"]
-# Define the environment colors (Grass, Desert, Snow)
-environments = [
-    (lambda draw_distance, z, x: (
-        max(0, min(255, int(34 - draw_distance / 3))),  # Grass green
-        max(0, min(255, int(139 - draw_distance))),
-        max(0, min(255, int(34 - z / 20 + 30 * math.sin(x))))
-    )),
-    (lambda draw_distance, z, x: (
-        max(0, min(255, int(222 - draw_distance / 3))),  # Desert tan
-        max(0, min(255, int(200 - draw_distance / 2))),
-        max(0, min(255, int(135 - z / 20 + 30 * math.sin(x))))
-    )),
-    (lambda draw_distance, z, x: (
-        max (0, min (255, int (280 - z / 20 + 30 * math.sin (x)))),  # Snow white
-        max (0, min (255, int (280 - z / 20 + 30 * math.sin (x)))),
-        max (0, min (255, int (300 - z / 20 + 30 * math.sin (x))))  # Cooler hue
-    )),
-]
-current_song_index = 0
-current_car_index = 0
-music_playing = False
-music_screen = False
-car_screen = False
-buttons_visible = False
 collision_occurred = False
 running = True
 start = False
@@ -159,56 +114,58 @@ class Player:
         self.y += self.velocity * math.sin (self.angle) * delta * 100
 
 
-def main_menu ():
+def main_menu():
     global start, music_playing, current_song_index, current_car_index, music_screen, car_screen, buttons_visible, car_sprite
 
-    screen = pygame.display.set_mode (screen_size, pygame.SCALED)
-    pygame.display.set_caption ("Main Menu")
+    screen = pygame.display.set_mode(screen_size, pygame.SCALED)
+    pygame.display.set_caption("Main Menu")
 
-    font = pygame.font.Font (None, 36)
-    small_font = pygame.font.Font (None, 24)
+    font = pygame.font.Font(None, 36)
+    small_font = pygame.font.Font(None, 24)
 
-    start_button = pygame.Rect (SCREENWIDTH / 2 - 60, 80, 120, 50)
-    music_button = pygame.Rect (SCREENWIDTH / 2 - 60, 140, 120, 50)
-    cars_button = pygame.Rect (SCREENWIDTH / 2 - 60, 200, 120, 50)
-    quit_button = pygame.Rect (SCREENWIDTH - 90, SCREENHEIGHT - 70, 120, 50)  # Positioned in the bottom-right corner
+    # Buttons' Rectangles
+    start_button = pygame.Rect(SCREENWIDTH / 2 - 60, 80, 120, 50)
+    music_button = pygame.Rect(SCREENWIDTH / 2 - 60, 140, 120, 50)
+    cars_button = pygame.Rect(SCREENWIDTH / 2 - 60, 200, 120, 50)
+    quit_button = pygame.Rect(SCREENWIDTH - 90, SCREENHEIGHT - 70, 120, 50)  # Positioned in the bottom-right corner
 
     while True:
-        screen.fill (BLACK)
-        for event in pygame.event.get ():
+        screen.fill(BLACK)
+
+        for event in pygame.event.get():
             if event.type == pygame.QUIT:
-                pygame.quit ()
+                pygame.quit()
                 return 'QUIT'
             elif event.type == pygame.MOUSEBUTTONDOWN:
                 mouse_pos = event.pos
                 if music_screen and buttons_visible:
-                    if button1.collidepoint (mouse_pos):
-                        current_song_index = (current_song_index - 1) % len (songs)
-                        play_music (current_song_index)
-                    elif button2.collidepoint (mouse_pos):
-                        current_song_index = (current_song_index + 1) % len (songs)
-                        play_music (current_song_index)
-                    elif back_button.collidepoint (mouse_pos):
-                        pygame.mixer.music.stop ()
+                    if button1.collidepoint(mouse_pos):
+                        current_song_index = (current_song_index - 1) % len(songs)
+                        play_music(current_song_index)
+                    elif button2.collidepoint(mouse_pos):
+                        current_song_index = (current_song_index + 1) % len(songs)
+                        play_music(current_song_index)
+                    elif back_button.collidepoint(mouse_pos):
+                        pygame.mixer.music.stop()
                         music_screen = False
                         buttons_visible = False
                 elif car_screen and buttons_visible:
-                    if button1.collidepoint (mouse_pos):
-                        current_car_index = (current_car_index - 1) % len (cars_images)
-                        car_sprite = pygame.image.load (cars_images[current_car_index])
-                    elif button2.collidepoint (mouse_pos):
-                        current_car_index = (current_car_index + 1) % len (cars_images)
-                        car_sprite = pygame.image.load (cars_images[current_car_index])
-                    elif back_button.collidepoint (mouse_pos):
+                    if button1.collidepoint(mouse_pos):
+                        current_car_index = (current_car_index - 1) % len(cars_images)
+                        car_sprite = pygame.image.load(cars_images[current_car_index])
+                    elif button2.collidepoint(mouse_pos):
+                        current_car_index = (current_car_index + 1) % len(cars_images)
+                        car_sprite = pygame.image.load(cars_images[current_car_index])
+                    elif back_button.collidepoint(mouse_pos):
                         car_screen = False
                         buttons_visible = False
                 else:
-                    if start_button.collidepoint (mouse_pos):
+                    if start_button.collidepoint(mouse_pos):
                         start = True
                         if not music_playing:
-                            play_music (current_song_index)
+                            play_music(current_song_index)
                             music_playing = True
-                        font = pygame.font.Font (None, 24)
+                        font = pygame.font.Font(None, 24)
                         instructions = [
                             "Press ^ arrow and Down Arrow to speed up and slow down.",
                             "Press < for left and > for right.",
@@ -217,69 +174,68 @@ def main_menu ():
                         ]
                         y_offset = 50
                         for instruction in instructions:
-                            text = font.render (instruction, True, WHITE)
-                            screen.blit (text, (10, y_offset))
+                            text = font.render(instruction, True, WHITE)
+                            screen.blit(text, (10, y_offset))
                             y_offset += 30
-                        pygame.display.update ()
-                        pygame.time.wait (1000)
+                        pygame.display.update()
+                        pygame.time.wait(1000)
                         return 'GAME'
-                    elif music_button.collidepoint (mouse_pos):
+                    elif music_button.collidepoint(mouse_pos):
                         music_screen = True
                         buttons_visible = True
-                    elif cars_button.collidepoint (mouse_pos):
+                    elif cars_button.collidepoint(mouse_pos):
                         car_screen = True
                         buttons_visible = True
-                    elif quit_button.collidepoint (mouse_pos):  # Check for quit button click
-                        pygame.quit ()
+                    elif quit_button.collidepoint(mouse_pos):  # Check for quit button click
+                        pygame.quit()
                         return 'QUIT'
 
         if not music_screen and not car_screen:
             # Display Highscore
-            # Convert highscore into hours, minutes, and seconds
             highscore_hours = int(highscore // 3600)  # 1 hour = 3600 seconds
             highscore_minutes = int((highscore % 3600) // 60)  # 1 minute = 60 seconds
             highscore_seconds = int(highscore % 60)  # Remaining seconds
-            highscore_milliseconds = int ((highscore % 1) * 1000)
+            highscore_milliseconds = int((highscore % 1) * 1000)
 
             # Render the highscore text
             highscore_text = small_font.render(
-                f"Highscore: {highscore_hours:02}:{highscore_minutes:02}:{highscore_seconds:02}s.{highscore_milliseconds:03}s", True, WHITE)
-            screen.blit(highscore_text, ((SCREENWIDTH /  2) - 80, 50))
+                f"Highscore: {highscore_hours:02}:{highscore_minutes:02}:{highscore_seconds:02}s.{highscore_milliseconds:03}s",
+                True, WHITE)
+            screen.blit(highscore_text, ((SCREENWIDTH / 2) - 80, 50))
 
-            pygame.draw.rect (screen, LIGHT_GRAY, start_button)
-            pygame.draw.rect (screen, LIGHT_GRAY, music_button)
-            pygame.draw.rect (screen, LIGHT_GRAY, cars_button)
-            pygame.draw.rect (screen, LIGHT_GRAY, quit_button)  # Draw the quit button
-            screen.blit (font.render ("Start", True, BLACK), (start_button.x + 15, start_button.y + 10))
-            screen.blit (font.render ("Music", True, BLACK), (music_button.x + 15, music_button.y + 10))
-            screen.blit (font.render ("Cars", True, BLACK), (cars_button.x + 15, cars_button.y + 10))
-            screen.blit (font.render ("Quit", True, BLACK),
-                         (quit_button.x + 15, quit_button.y + 10))  # Render text on quit button
+            pygame.draw.rect(screen, LIGHT_GRAY, start_button)
+            pygame.draw.rect(screen, LIGHT_GRAY, music_button)
+            pygame.draw.rect(screen, LIGHT_GRAY, cars_button)
+            pygame.draw.rect(screen, LIGHT_GRAY, quit_button)  # Draw the quit button
+            screen.blit(font.render("Start", True, BLACK), (start_button.x + 15, start_button.y + 10))
+            screen.blit(font.render("Music", True, BLACK), (music_button.x + 15, music_button.y + 10))
+            screen.blit(font.render("Cars", True, BLACK), (cars_button.x + 15, cars_button.y + 10))
+            screen.blit(font.render("Quit", True, BLACK),
+                        (quit_button.x + 15, quit_button.y + 10))  # Render text on quit button
 
         elif music_screen:
-            button1 = pygame.Rect (SCREENWIDTH / 2 - 120, 50, 120, 50)
-            button2 = pygame.Rect (SCREENWIDTH / 2, 50, 120, 50)
-            back_button = pygame.Rect (SCREENWIDTH / 2 - 60, 170, 120, 50)
-            pygame.draw.rect (screen, LIGHT_GRAY, button1)
-            pygame.draw.rect (screen, LIGHT_GRAY, button2)
-            pygame.draw.rect (screen, LIGHT_GRAY, back_button)
-            screen.blit (font.render ("<--", True, BLACK), (button1.x + 30, button1.y + 10))
-            screen.blit (font.render ("-->", True, BLACK), (button2.x + 30, button2.y + 10))
-            screen.blit (font.render ("Back", True, BLACK), (back_button.x + 25, back_button.y + 10))
+            button1 = pygame.Rect(SCREENWIDTH / 2 - 120, 50, 120, 50)
+            button2 = pygame.Rect(SCREENWIDTH / 2, 50, 120, 50)
+            back_button = pygame.Rect(SCREENWIDTH / 2 - 60, 170, 120, 50)
+            pygame.draw.rect(screen, LIGHT_GRAY, button1)
+            pygame.draw.rect(screen, LIGHT_GRAY, button2)
+            pygame.draw.rect(screen, LIGHT_GRAY, back_button)
+            screen.blit(font.render("<--", True, BLACK), (button1.x + 30, button1.y + 10))
+            screen.blit(font.render("-->", True, BLACK), (button2.x + 30, button2.y + 10))
+            screen.blit(font.render("Back", True, BLACK), (back_button.x + 25, back_button.y + 10))
 
         elif car_screen:
-            button1 = pygame.Rect (SCREENWIDTH / 2 - 120, 50, 120, 50)
-            button2 = pygame.Rect (SCREENWIDTH / 2, 50, 120, 50)
-            back_button = pygame.Rect (SCREENWIDTH / 2 - 60, 170, 120, 50)
-            pygame.draw.rect (screen, LIGHT_GRAY, button1)
-            pygame.draw.rect (screen, LIGHT_GRAY, button2)
-            pygame.draw.rect (screen, LIGHT_GRAY, back_button)
-            screen.blit (font.render ("Prev Car", True, BLACK), (button1.x + 10, button1.y + 10))
-            screen.blit (font.render ("Next Car", True, BLACK), (button2.x + 10, button2.y + 10))
-            screen.blit (car_sprite, (100, 115))
-            screen.blit (font.render ("Back", True, BLACK), (back_button.x + 25, back_button.y + 10))
+            button1 = pygame.Rect(SCREENWIDTH / 2 - 120, 50, 120, 50)
+            button2 = pygame.Rect(SCREENWIDTH / 2, 50, 120, 50)
+            back_button = pygame.Rect(SCREENWIDTH / 2 - 60, 170, 120, 50)
+            pygame.draw.rect(screen, LIGHT_GRAY, button1)
+            pygame.draw.rect(screen, LIGHT_GRAY, button2)
+            pygame.draw.rect(screen, LIGHT_GRAY, back_button)
+            screen.blit(font.render("<--", True, BLACK), (button1.x + 30, button1.y + 10))
+            screen.blit(font.render("-->", True, BLACK), (button2.x + 30, button2.y + 10))
+            screen.blit(font.render("Back", True, BLACK), (back_button.x + 25, back_button.y + 10))
 
-        pygame.display.flip ()
+        pygame.display.update()
 
 def game_loop ():
     global highscore, collision_occurred, car_sprite, current_song_index, tree_sprite, current_environment_index, music_playing, cars, trees, enemy_position_offset
@@ -293,15 +249,6 @@ def game_loop ():
     car_sprite = pygame.image.load (cars_images[current_car_index])
     car_sprite2 = pygame.image.load ("facingcar.png").convert_alpha ()
     tree_sprite = pygame.image.load ("tree.png")
-
-    if collision_occurred:
-        # Clear all lists or variables representing game elements
-        cars.clear()
-        trees.clear()
-
-    car = Player ()
-    cars = [Car (-50), Car (-23), Car (7)]
-    trees = [Tree (-67), Tree (-55), Tree (-43), Tree (-33), Tree (-25), Tree (-13), Tree (-3)]
 
     realtime = False
     running = True
@@ -321,8 +268,13 @@ def game_loop ():
     # Maximum scale for the enemy car sprite
     MAX_ENEMY_CAR_SCALE = 0.5  # Adjust this value based on your needs
 
+    car = Player()
+    cars = [Car(-50), Car(-23), Car(7)]
+    trees = [Tree(-67), Tree(-55), Tree(-43), Tree(-33), Tree(-25), Tree(-13), Tree(-3)]
+
     # Main game loop
     while running:
+
         delta = clock.tick() / 1000 + 0.00001
         total_time += delta
         car.controls(delta)
@@ -331,26 +283,6 @@ def game_loop ():
             if event.type == pygame.QUIT:
                 running = False
                 return 'QUIT'
-
-            if collision_occurred:
-                # Reset all key variables to default state
-                vertical = 0
-                horizontal = 0
-                z = 0
-                scale = 0
-                draw_distance = 0
-                total_time = 0
-                delta = 0
-                # Reset player car properties
-                car.angle = 0
-                car.velocity = 0
-                car.acceleration = 0
-                car.x = 0
-                car.y = 0
-                car.z = 0
-                total_time = 0
-                collision_occurred = False
-                music_playing = False
 
         screen.fill((100, 180, 250))
         # Convert total_time into hours, minutes, and seconds
@@ -429,7 +361,7 @@ def game_loop ():
             z = calc_z(cars[index].x) - car.z
             vertical = int(60 + 160 * enemy_car_scale + z * enemy_car_scale)
 
-            if 1 <= vertical < 180:
+            if 5 <= vertical < 180:
                 horizontal = int(160 - (65 - y) * enemy_car_scale) + car.angle * (vertical - 150)
                 enemy_car_rect = scaled_enemy_car_sprite.get_rect(
                     topleft=(2 + horizontal, 60 + vertical - scaled_enemy_car_sprite.get_height() + 1)
@@ -459,6 +391,28 @@ def game_loop ():
                     collision_sound.play()
                     collision_occurred = True
                     print("Collision Detected!")
+                    # Reset all key variables to default state
+                    vertical = 0
+                    horizontal = 0
+                    z = 0
+                    scale = 0
+                    draw_distance = 0
+                    total_time = 0
+                    delta = 0
+                    # Reset player car properties
+                    car.angle = 0
+                    car.velocity = 0
+                    car.acceleration = 0
+                    car.x = 0
+                    car.y = 0
+                    car.z = 0
+                    total_time = 0
+                    # Clear all lists or variables representing game elements
+                    cars.clear()
+                    trees.clear()
+                    cars = [Car(-50), Car(-23), Car(7)]
+                    trees = [Tree(-67), Tree(-55), Tree(-43), Tree(-33), Tree(-25), Tree(-13), Tree(-3)]
+                    music_playing = False
                     main_menu()
             else:
                 collision_occurred = False
@@ -478,28 +432,19 @@ def game_loop ():
         pygame.display.update ()
 
 
-def main ():
+def main():
     state = 'MENU'
 
     while state != 'QUIT':
         if state == 'MENU':
-            state = main_menu ()
+            state = main_menu()  # Assuming this function is defined somewhere
         elif state == 'GAME':
-            state = game_loop ()
+            state = game_loop()  # Calls the newly defined game loop
+        elif state == 'QUIT':
+            break  # Exits the while loop when quitting
 
-    pygame.quit ()
-
-
-if __name__ == "__main__":
-    main ()
-
-
-
-if __name__ == "__main__":
-    main()
     pygame.quit()
 
 
 if __name__ == "__main__":
     main()
-    pygame.quit()

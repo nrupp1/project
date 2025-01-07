@@ -1,9 +1,14 @@
+from os import times
+
 import pygame
 import math
 import random
 from pygame.locals import *
 
 # Global variables and settings
+global time, delta
+time = True
+delta = 0
 SCREENHEIGHT = 240
 SCREENWIDTH = 320
 screen_size = (SCREENWIDTH, SCREENHEIGHT)
@@ -160,10 +165,9 @@ class Player:
 
 
 def main_menu():
-    global start, music_playing, current_song_index, current_car_index, music_screen, car_screen, buttons_visible, car_sprite
-
+    global start, time, delta, total_time, music_playing, current_song_index, current_car_index, music_screen, car_screen, buttons_visible, car_sprite
     screen = pygame.display.set_mode(screen_size, pygame.SCALED)
-    pygame.display.set_caption("Main Menu")
+    pygame.display.set_caption("Don't Crash!!!")
 
     font = pygame.font.Font(None, 36)
     small_font = pygame.font.Font(None, 24)
@@ -197,9 +201,11 @@ def main_menu():
                 elif car_screen and buttons_visible:
                     if button1.collidepoint(mouse_pos):
                         current_car_index = (current_car_index - 1) % len(cars_images)
+                        car_sprite = pygame.image.load (cars_images[current_car_index])
                         car_sprite = pygame.image.load(cars_images[current_car_index])
                     elif button2.collidepoint(mouse_pos):
                         current_car_index = (current_car_index + 1) % len(cars_images)
+                        car_sprite = pygame.image.load(cars_images[current_car_index])
                         car_sprite = pygame.image.load(cars_images[current_car_index])
                     elif back_button.collidepoint(mouse_pos):
                         car_screen = False
@@ -207,6 +213,8 @@ def main_menu():
                 else:
                     if start_button.collidepoint(mouse_pos):
                         start = True
+                        time = True
+                        delta = 0
                         if not music_playing:
                             play_music(current_song_index)
                             music_playing = True
@@ -247,6 +255,7 @@ def main_menu():
                 f"Highscore: {highscore_hours:02}:{highscore_minutes:02}:{highscore_seconds:02}s.{highscore_milliseconds:03}s",
                 True, WHITE)
             screen.blit(highscore_text, ((SCREENWIDTH / 2) - 80, 50))
+            total_time = 0
 
             pygame.draw.rect(screen, LIGHT_GRAY, start_button)
             pygame.draw.rect(screen, LIGHT_GRAY, music_button)
@@ -278,15 +287,15 @@ def main_menu():
             pygame.draw.rect(screen, LIGHT_GRAY, back_button)
             screen.blit(font.render("<--", True, BLACK), (button1.x + 30, button1.y + 10))
             screen.blit(font.render("-->", True, BLACK), (button2.x + 30, button2.y + 10))
+            screen.blit (car_sprite, (135, 115))
             screen.blit(font.render("Back", True, BLACK), (back_button.x + 25, back_button.y + 10))
 
         pygame.display.update()
 
 def game_loop ():
-    global highscore, collision_occurred, car_sprite, current_song_index, tree_sprite, current_environment_index, music_playing, cars, trees, enemy_position_offset
-
+    global highscore, delta, time, total_time,  collision_occurred, car_sprite, current_song_index, tree_sprite, current_environment_index, music_playing, cars, trees, enemy_position_offset
     screen = pygame.display.set_mode (screen_size, pygame.SCALED)
-    pygame.display.set_caption ("Game Running")
+    pygame.display.set_caption ("Don't Crash!!!")
 
     clock = pygame.time.Clock ()
 
@@ -317,8 +326,13 @@ def game_loop ():
     cars = [Car(-50), Car(-23), Car(7)]
     trees = [Tree(-67), Tree(-55), Tree(-43), Tree(-33), Tree(-25), Tree(-13), Tree(-3)]
 
+    total_time = 0
+    time = True
     # Main game loop
-    while running:
+    while running & time:
+
+        if clock == 0:
+            clock = pygame.time.Clock ()
 
         delta = clock.tick() / 1000 + 0.00001
         total_time += delta
@@ -446,6 +460,7 @@ def game_loop ():
                     draw_distance = 0
                     total_time = 0
                     delta = 0
+                    clock = 0
                     # Reset player car properties
                     car.angle = 0
                     car.velocity = 0
@@ -460,6 +475,7 @@ def game_loop ():
                     cars = [Car(-50), Car(-23), Car(7)]
                     trees = [Tree(-67), Tree(-55), Tree(-43), Tree(-33), Tree(-25), Tree(-13), Tree(-3)]
                     music_playing = False
+                    time = False
                     main_menu()
             else:
                 collision_occurred = False

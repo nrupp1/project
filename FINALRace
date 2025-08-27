@@ -1,12 +1,33 @@
+from contextlib import nullcontext
 from os import times
 
 import pygame
+import asyncio
 import math
 import random
 from pygame.locals import *
+import os
+import sysconfig
+import atexit
+
+from win32verstamp import nullterm, null_byte
+
+dll_path = sysconfig.get_config_var("BINDIR")
+os.add_dll_directory(dll_path)
+# List of assets (images, sounds, and other files)
+
+assets = [
+    "road.png",
+    "car1.png", "car2.png", "car3.png", "car4.png", "car5.png", "car6.png",
+    "snowtree.png", "tree.png", "cactus.png", "facingcar.png",
+    "68. Rainbow Road.mp3", "Magical Sound Shower.mp3", "28. Coconut Mall.mp3",
+    "04 A little good - Lightning.mp3", "1-109. Bowser's Castle_.mp3",
+    "GT2_13201_2.wav", "brake-101soundboards.mp3", "collapse-101soundboards.mp3",
+    "icon.ico"  # Include your icon file
+]
 
 # Global variables and settings
-global time, delta
+global time, delta, player_car_rect, collision_occurred, current_environment_index, b, r, r2, g, terrain_mode
 time = True
 delta = 0
 SCREENHEIGHT = 240
@@ -43,6 +64,7 @@ environments = [
         max (0, min (255, int (300 - z / 20 + 30 * math.sin (x))))  # Cooler hue
     )),
 ]
+current_environment_index = 0
 current_song_index = 0
 current_car_index = 0
 music_playing = False
@@ -59,11 +81,12 @@ pygame.mixer.init ()
 
 # Load car images and tree sprite
 car_sprite = pygame.image.load ("car1.png")
-car_sprite2 = pygame.image.load ("facingcartest.png")
+car_sprite2 = pygame.image.load ("facingcar.png")
 road_texture = pygame.image.load ("road.png")
 car_sprite2_rect = car_sprite2.get_rect ()
 car_sprite2_mask = pygame.mask.from_surface (car_sprite2)
 tree_sprite = pygame.image.load ("tree.png")
+
 
 
 
@@ -84,28 +107,117 @@ class Tree:
 def calc_y (x):
     return 200 * math.sin (x / 15) + 250 * math.sin (x / 7)
 
+import math
+import pygame
 
-def calc_z (x):
-    return 200 + 80 * math.sin (x / 17) - 140 * math.sin (x / 8)
+# Initial terrain parameters
+b = 80.0  # Start values for "normal" as float
+r = 140.0
+r2 = 17.0
+g = 8.0
+terrain_mode = "normal"  # Starting terrain mode
+transition_speed = 0.2  # Global transition speed
+
+# Global variables
+start_time = None
+start = False
+transition_duration = 2000  # 2 seconds for transition
+
+def start_button_pressed():
+    global start_time, start
+    if not start:
+        start = True  # Start the transition when the button is pressed
+        start_time = pygame.time.get_ticks()  # Record the time when start is pressed
 
 
-def render_element (screen, sprite, width, height, scale, x, car, y, z_buffer):
-    y = calc_y (x) - y
-    z = calc_z (x) - car.z
-    vertical = int (60 + 160 * scale + z * scale)
+def calc_z(x):
+    global b, r, r2, g, c_base, terrain_mode, start_time, transition_duration
+
+    # Initialize c_base if it doesn't exist
+    if "c_base" not in globals():
+        c_base = 0
+
+    # Set the initial terrain if no transition has started
+    if start_time is None:
+        c_base = -r * math.sin(x / g)
+
+    # Calculate time elapsed
+    current_time = pygame.time.get_ticks()
+    time_elapsed = current_time - start_time
+    if time_elapsed > transition_duration:
+        time_elapsed = transition_duration
+
+    # Transition factor (0 to 1)
+    transition_factor = time_elapsed / transition_duration
+
+    # Terrain mode settings and targets
+    terrain_targets = {
+        "normal": (120.0, 5.0, 17.0, 30.0, -50.0, "uphill"),
+        "uphill": (220.0, 200.0, 17.0, 5.0, -120.0, "flat"),
+        "steep": (80.0, 140.0, 17.0, 8.0, -80.0, "flat"),
+        "flat": (10.0, 50.0, 17.0, 50.0, -0.1, "downhill"),
+        "downhill": (-70.0, 100.0, 20.0, 60.0, 140.0, "normal")
+    }
+
+    if terrain_mode in terrain_targets:
+        target_b, target_r, target_r2, target_g, target_c_base, next_mode = terrain_targets[terrain_mode]
+    else:
+        next_mode = "normal"
+
+    # Smooth transition for c_base
+    c_base += (target_c_base - c_base) * (transition_factor * 0.000001)  # Adjusted for smoother transition
+    c = max(-300, min(300, c_base))  # Clamp c to be between -300 and 300
+
+    # Calculate z based on the transition
+    z = 200 + b * math.sin(x / r2) + c
+
+    # Gradual transition for other terrain parameters
+    if abs(b - target_b) > 1:
+        b += (target_b - b) * (transition_factor * 0.000003)  # Adjust transition speed for b
+        return z
+    if abs(r2 - target_r2) > 1:
+        r2 += (target_r2 - r2) * (transition_factor * 0.000005)
+        return z
+    if abs(r - target_r) > 1:
+        r += (target_r - r) * (transition_factor * 0.000005)
+        return z
+    if abs(g - target_g) > 1:
+        g += (target_g - g) * (transition_factor * 0.005)
+        return z
+
+    # If all parameters are close to their targets, switch terrain mode
+    terrain_mode = next_mode
+    print(f"Terrain mode changed to {terrain_mode}")
+    start_time = pygame.time.get_ticks()  # Restart transition timer for smooth cycling
+    return z
+
+def render_element(screen, sprite, width, height, scale, x, car, y, z_buffer):
+    # Calculate z once and apply smoothing
+    z_value = calc_z(x) - car.z
+    vertical = int(60 + 160 * scale + z_value * scale)
+
+    # Calculate y based on x, no changes to the y calculation
+    adjusted_y = calc_y(x) - y
+
+    # Calculate horizontal position based on car's angle
+    horizontal = int(160 - (65 - adjusted_y) * scale) + car.angle * (vertical - 150)
+
+    # Check if vertical is in the valid range and z-buffer for that pixel is clear
     if 1 <= vertical < 180 and z_buffer[vertical - 1] > 1 / scale - 10:
-        horizontal = int (160 - (65 - y) * scale) + car.angle * (vertical - 150)
-        scaled_sprite = pygame.transform.scale (sprite, (width, height))
-        screen.blit (scaled_sprite, (horizontal, 60 + vertical - height + 1))
+        # Scale the sprite based on width and height, then blit to screen
+        scaled_sprite = pygame.transform.scale(sprite, (width, height))
+        screen.blit(scaled_sprite, (horizontal, 60 + vertical - height + 1))
 
+        # Update z_buffer with the calculated z_value at the specific vertical position
+        z_buffer[vertical - 1] = max(z_buffer[vertical - 1], z_value)
 
 class Car:
-    def __init__ (self, distance):
-        self.x = distance + random.randint (90, 110)
+    def __init__(self, distance):
+        self.x = distance + random.randint(90, 110)
 
 
 class Player:
-    def __init__ (self):
+    def __init__(self):
         self.angletwo = 0
         self.angleone = 0
         self.x = 0
@@ -113,43 +225,33 @@ class Player:
         self.z = 0
         self.angle = 0
         self.velocity = 0
-        self.acceleration = 0
+        self.acceleration = 1  # Constant acceleration for auto-forward movement
+        self.left_pressed_time = 0  # Time spent pressing left
+        self.right_pressed_time = 0  # Time spent pressing right
 
-    def controls (self, delta):
-        pressed_keys = pygame.key.get_pressed ()
-        self.acceleration += -0.5 * self.acceleration * delta
-        self.velocity += -0.5 * self.velocity * delta
+    def controls(self, delta):
+        pressed_keys = pygame.key.get_pressed()
 
-        # Sounds for the player car
-        driving_sound = pygame.mixer.Sound ("GT2_13201_2.wav")
-        driving_sound.set_volume (0.2)
-        brake_sound = pygame.mixer.Sound ("brake-101soundboards.mp3")
-        brake_sound.set_volume (0.2)
+        # Auto-accelerate
+        self.velocity += self.acceleration * delta
 
-        if not hasattr (self, 'brake_sound_played'):
-            self.brake_sound_played = False
+        # Track left/right input time
+        if pressed_keys[pygame.K_a] or pressed_keys[pygame.K_LEFT]:
+            self.left_pressed_time += delta
+            self.right_pressed_time = 0  # Reset right press time
+        elif pressed_keys[pygame.K_d] or pressed_keys[pygame.K_RIGHT]:
+            self.right_pressed_time += delta
+            self.left_pressed_time = 0  # Reset left press time
+        else:
+            # Reset both times if no directional input
+            self.left_pressed_time = 0
+            self.right_pressed_time = 0
 
-        # Accelerate
-        if pressed_keys[pygame.K_w] or pressed_keys[pygame.K_UP]:
-            if self.velocity > -1:
-                self.acceleration += 4 * delta
-                if not pygame.mixer.Channel (0).get_busy ():  # Ensure no overlap
-                    pygame.mixer.Channel (0).play (driving_sound)
-            else:
-                self.acceleration = 0
-                self.velocity += -self.velocity * delta
-
-        # Brake
-        elif pressed_keys[pygame.K_s] or pressed_keys[pygame.K_DOWN]:
-            if self.velocity < 1:
-                self.acceleration -= delta
-                if not self.brake_sound_played:
-                    pygame.mixer.Channel (1).play (brake_sound)  # Use another channel
-                    self.brake_sound_played = True
-            else:
-                self.acceleration = 0
-                self.velocity += -self.velocity * delta
-                self.brake_sound_played = False
+        # End game if only going left or right for 10 seconds
+        if self.left_pressed_time >= 10 or self.right_pressed_time >= 10:
+            print("Game Over: You drove off into the grass for too long!")
+            pygame.quit()
+            exit()
 
         # Steering
         if pressed_keys[pygame.K_a] or pressed_keys[pygame.K_LEFT]:
@@ -157,14 +259,15 @@ class Player:
         elif pressed_keys[pygame.K_d] or pressed_keys[pygame.K_RIGHT]:
             self.angle += (delta * self.velocity / 10) % 1
 
-        self.velocity = max (-10, min (self.velocity, 20))
-        self.angle = max (-0.8, min (0.8, self.angle))
-        self.velocity += self.acceleration * delta
-        self.x += self.velocity * delta * math.cos (self.angle)
-        self.y += self.velocity * math.sin (self.angle) * delta * 100
+        # Clamp velocity and angle values
+        self.velocity = max(-30, min(self.velocity, 24))
+        self.angle = max(-0.8, min(0.8, self.angle))
 
+        # Update position
+        self.x += self.velocity * delta * math.cos(self.angle)
+        self.y += self.velocity * math.sin(self.angle) * delta * 100
 
-def main_menu():
+async def main_menu():
     global start, time, delta, total_time, music_playing, current_song_index, current_car_index, music_screen, car_screen, buttons_visible, car_sprite
     screen = pygame.display.set_mode(screen_size, pygame.SCALED)
     pygame.display.set_caption("Don't Crash!!!")
@@ -184,7 +287,6 @@ def main_menu():
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 pygame.quit()
-                return 'QUIT'
             elif event.type == pygame.MOUSEBUTTONDOWN:
                 mouse_pos = event.pos
                 if music_screen and buttons_visible:
@@ -212,6 +314,7 @@ def main_menu():
                         buttons_visible = False
                 else:
                     if start_button.collidepoint(mouse_pos):
+                        start_button_pressed ()
                         start = True
                         time = True
                         delta = 0
@@ -220,12 +323,10 @@ def main_menu():
                             music_playing = True
                         font = pygame.font.Font(None, 24)
                         instructions = [
-                            "Press ^ arrow and Down Arrow to speed up and slow down.",
-                            "Press < for left and > for right.",
-                            "Press ESC to go back to the menu.",
-                            "Press Enter to start the game."
+                            "Press Down Arrow to slow down.",
+                            "Press < for left and > for right."
                         ]
-                        y_offset = 50
+                        y_offset = 110
                         for instruction in instructions:
                             text = font.render(instruction, True, WHITE)
                             screen.blit(text, (10, y_offset))
@@ -241,7 +342,6 @@ def main_menu():
                         buttons_visible = True
                     elif quit_button.collidepoint(mouse_pos):  # Check for quit button click
                         pygame.quit()
-                        return 'QUIT'
 
         if not music_screen and not car_screen:
             # Display Highscore
@@ -292,8 +392,8 @@ def main_menu():
 
         pygame.display.update()
 
-def game_loop ():
-    global highscore, delta, time, total_time,  collision_occurred, car_sprite, current_song_index, tree_sprite, current_environment_index, music_playing, cars, trees, enemy_position_offset
+async def game_loop ():
+    global highscore, b, r2, r, g, delta, time, total_time, terrain_mode,  collision_occurred, car_sprite, current_song_index, tree_sprite, current_environment_index, music_playing, cars, trees, enemy_position_offset, start
     screen = pygame.display.set_mode (screen_size, pygame.SCALED)
     pygame.display.set_caption ("Don't Crash!!!")
 
@@ -341,15 +441,95 @@ def game_loop ():
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 running = False
-                return 'QUIT'
 
-        screen.fill((100, 180, 250))
-        # Convert total_time into hours, minutes, and seconds
+            if start:
+                car.acceleration = 1
+
+        # Alternate day/night every 45 seconds
+        cycle_length = 45
+        day_night_cycle = int (total_time // cycle_length) % 2  # 0 = day, 1 = night
+        cycle_time = (total_time % cycle_length) / cycle_length  # 0.0 to 1.0 within current cycle
+
+        if day_night_cycle == 0:
+            # Day cycle fractions
+            t = cycle_time  # 0.0 to 1.0 within the day
+
+            # Define target colors for day
+            day_start_color = (0, 0, 0)  # dark at sunrise
+            sunrise_color = (255, 120, 50)  # sunrise orange
+            midday_color = (100, 180, 220)  # blue sky
+            pre_sunset_color = (255, 140, 60)  # pre-sunset orange
+            day_end_color = (20, 20, 20)  # slightly darker black at sunset
+
+            # Stage 1: Night -> sunrise (0.0 - 0.15)
+            if t < 0.15:
+                start_color = day_start_color
+                end_color = sunrise_color
+                local_t = t / 0.15
+            # Stage 2: Sunrise -> midday blue (0.15 - 0.55)
+            elif t < 0.55:
+                start_color = sunrise_color
+                end_color = midday_color
+                local_t = (t - 0.15) / 0.4
+            # Stage 3: Midday blue -> pre-sunset orange (0.55 - 0.8)
+            elif t < 0.8:
+                start_color = midday_color
+                end_color = pre_sunset_color
+                local_t = (t - 0.55) / 0.25
+            # Stage 4: Pre-sunset -> end-of-day black (0.8 - 1.0)
+            else:
+                start_color = pre_sunset_color
+                end_color = day_end_color
+                local_t = (t - 0.8) / 0.2
+
+            # Interpolate RGB values
+            sky_red = int (start_color[0] + (end_color[0] - start_color[0]) * local_t)
+            sky_green = int (start_color[1] + (end_color[1] - start_color[1]) * local_t)
+            sky_blue = int (start_color[2] + (end_color[2] - start_color[2]) * local_t)
+
+            screen.fill ((sky_red, sky_green, sky_blue))
+
+            # Sun moves along an arc
+            sun_x = int (-40 + 400 * t)
+            sun_y = int (160 - math.sin (t * math.pi) * 100)
+            pygame.draw.circle (screen, (255, 255, 100), (sun_x, sun_y), 30)
+
+        else:
+            # Night cycle fractions
+            t = cycle_time
+
+            # Night color targets based on day endpoints
+            night_start_color = day_end_color  # start of night = end of day
+            night_end_color = day_start_color  # end of night = start of day
+
+            # Interpolate night sky
+            sky_red = int (night_start_color[0] + (night_end_color[0] - night_start_color[0]) * t)
+            sky_green = int (night_start_color[1] + (night_end_color[1] - night_start_color[1]) * t)
+            sky_blue = int (night_start_color[2] + (night_end_color[2] - night_start_color[2]) * t)
+
+            screen.fill ((sky_red, sky_green, sky_blue))
+
+            # Stars
+            star_offsets = [(-100, 20), (-40, 60), (30, 30), (100, 70)]
+            for dx, dy in star_offsets:
+                star_x = (160 + dx + int (car.x / 10)) % 320
+                star_y = 30 + dy
+                pygame.draw.circle (screen, (255, 255, 255), (star_x, star_y), 2)
+
+            # Moon (slightly yellow)
+            moon_x = int (-40 + 400 * t)
+            moon_y = int (160 - math.sin (t * math.pi) * 100)
+            pygame.draw.circle (screen, (255, 255, 180), (moon_x, moon_y), 25)
+
+            # Convert total_time into hours, minutes, and seconds
         hours = int (total_time // 3600)  # 1 hour = 3600 seconds
         minutes = int ((total_time % 3600) // 60)  # 1 minute = 60 seconds
         seconds = int (total_time % 60)  # Remaining seconds
         milliseconds = int ((total_time % 1) * 1000)
         # Render the timer
+        # Example simulation loop
+        for i in range (100):  # Simulating 100 frames
+            x_value = i * 10  # Example x-value progression
         font = pygame.font.Font (None, 36)
         timer_text = font.render (f"Time: {hours:02}:{minutes:02}:{seconds:02}.{milliseconds:03}", True, (255, 255, 255))
         screen.blit (timer_text, (10, 10))
@@ -368,19 +548,22 @@ def game_loop ():
 
             if draw_distance < 115:
                 z_buffer[int(vertical)] = draw_distance
+                x = car.x + draw_distance
                 road_slice = road_texture.subsurface((0, 10 * x % 170, 320, 1))
                 # Determine the current environment based on elapsed time
                 current_environment_index = int (total_time) // 30 % len (environments)
                 current_color_func = environments[current_environment_index]
                 # Calculate the color based on the current environment
+                z = calc_z (x) - car.z
                 color = current_color_func (draw_distance, z, x)
                 pygame.draw.rect(screen, color, (0, 60 + vertical, 320, 1))
+                scale = 1 / draw_distance
                 render_element(screen, road_slice, 600 * scale, 1, scale, x, car, 70 + car.y, z_buffer)
 
         for index in reversed(range(len(trees) - 1)):
             if current_environment_index == 2:
                 tree_sprite = pygame.image.load("snowtree.png")
-            if current_environment_index == 1:
+            elif current_environment_index == 1:
                 tree_sprite = pygame.image.load ("cactus.png")
             else:
                 tree_sprite = pygame.image.load ("tree.png")
@@ -476,7 +659,14 @@ def game_loop ():
                     trees = [Tree(-67), Tree(-55), Tree(-43), Tree(-33), Tree(-25), Tree(-13), Tree(-3)]
                     music_playing = False
                     time = False
-                    main_menu()
+                    start = False
+                    screen.blit(car_sprite, (0,0))
+                    await main_menu()
+                    terrain_mode = "normal"
+                    b = 80.0  # Start values for "normal" as float
+                    r = 140.0
+                    r2 = 17.0
+                    g = 8.0
             else:
                 collision_occurred = False
 
@@ -487,7 +677,7 @@ def game_loop ():
         if total_time > highscore:
             highscore = total_time
 
-        if abs (car.y - calc_y (car.x + 2) - 95) > 340 and car.velocity > 5:
+        if abs (car.y - calc_y (car.x + 2) - 95) > 360 and car.velocity > 5:
             # Scale car sprite before rendering
             car.velocity += -car.velocity * delta
             car.acceleration += -car.acceleration * delta
@@ -495,19 +685,20 @@ def game_loop ():
         pygame.display.update ()
 
 
-def main():
-    state = 'MENU'
 
+async def main():
+    state = 'MENU'
     while state != 'QUIT':
         if state == 'MENU':
-            state = main_menu()  # Assuming this function is defined somewhere
+            state = await main_menu()  # Assuming this function is an async coroutine
         elif state == 'GAME':
-            state = game_loop()  # Calls the newly defined game loop
+            state = await game_loop()  # Calls the newly defined async game loop
         elif state == 'QUIT':
             break  # Exits the while loop when quitting
 
-    pygame.quit()
 
+    pygame.quit()
+    exit()
 
 if __name__ == "__main__":
-    main()
+    asyncio.run(main())
